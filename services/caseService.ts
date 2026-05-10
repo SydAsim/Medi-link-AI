@@ -12,6 +12,8 @@ import {
   updateDoc,
   deleteDoc,
   query,
+  where,
+  orderBy,
   onSnapshot,
 } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
@@ -38,28 +40,30 @@ export async function getCase(caseId: string): Promise<PatientCase | null> {
 }
 
 export async function getAllCases(): Promise<PatientCase[]> {
-  const snap = await getDocs(collection(db, CASES_COLLECTION));
+  const q = query(collection(db, CASES_COLLECTION));
+  const snap = await getDocs(q);
   return snap.docs
     .map((d) => ({ id: d.id, ...d.data() } as PatientCase))
-    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    .sort((a, b) => b.createdAt - a.createdAt);
 }
 
 export async function getCasesByPhone(phone: string): Promise<PatientCase[]> {
-  const snap = await getDocs(collection(db, CASES_COLLECTION));
+  const q = query(
+    collection(db, CASES_COLLECTION),
+    where("patientPhone", "==", phone.trim())
+  );
+  const snap = await getDocs(q);
   return snap.docs
     .map((d) => ({ id: d.id, ...d.data() } as PatientCase))
-    .filter((c) => c.patientPhone === phone)
-    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    .sort((a, b) => b.createdAt - a.createdAt);
 }
 
-// MUST actually write to Firestore — not a console.log stub
 export async function updateCaseStatus(
   caseId: string,
   status: CaseStatus
 ): Promise<void> {
   const caseRef = doc(db, CASES_COLLECTION, caseId);
   await updateDoc(caseRef, { status, updatedAt: Date.now() });
-  console.log("✅ Status updated:", caseId, "→", status);
 }
 
 export async function updateCase(
@@ -76,20 +80,18 @@ export async function deleteCase(caseId: string): Promise<void> {
   await deleteDoc(doc(db, CASES_COLLECTION, caseId));
 }
 
-// NO where(), NO orderBy() → avoids composite index requirement
-// All filtering and sorting done CLIENT-SIDE
 export function subscribeToAllCases(
   callback: (cases: PatientCase[]) => void
 ): () => void {
   const q = query(collection(db, CASES_COLLECTION));
+  
   return onSnapshot(
     q,
     (snapshot) => {
-      const all = snapshot.docs.map(
-        (d) => ({ id: d.id, ...d.data() } as PatientCase)
-      );
-      const sorted = all.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-      callback(sorted);
+      const cases = snapshot.docs
+        .map((d) => ({ id: d.id, ...d.data() } as PatientCase))
+        .sort((a, b) => b.createdAt - a.createdAt);
+      callback(cases);
     },
     (error) => {
       console.error("❌ Listener error:", error);
@@ -102,17 +104,18 @@ export function subscribeToCasesByPhone(
   phone: string,
   callback: (cases: PatientCase[]) => void
 ): () => void {
-  const q = query(collection(db, CASES_COLLECTION));
+  const q = query(
+    collection(db, CASES_COLLECTION),
+    where("patientPhone", "==", phone.trim())
+  );
+
   return onSnapshot(
     q,
     (snapshot) => {
-      const all = snapshot.docs.map(
-        (d) => ({ id: d.id, ...d.data() } as PatientCase)
-      );
-      const filtered = all
-        .filter((c) => c.patientPhone === phone)
-        .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-      callback(filtered);
+      const cases = snapshot.docs
+        .map((d) => ({ id: d.id, ...d.data() } as PatientCase))
+        .sort((a, b) => b.createdAt - a.createdAt);
+      callback(cases);
     },
     (error) => {
       console.error("❌ Listener error:", error);

@@ -18,6 +18,7 @@ import {
 import { cn, getSeverityColor, getRelativeTime } from "@/lib/utils";
 import { subscribeToCasesByPhone } from "@/services/caseService";
 import { sendMessage, subscribeToChatMessages } from "@/services/chatService";
+import { SituationalAdvice } from "@/components/patient/SituationalAdvice";
 import type { PatientCase, ChatMessage } from "@/types";
 
 interface PatientHistoryProps {
@@ -150,26 +151,12 @@ function CaseCard({
         <div className="flex-1 min-w-0">
           <p className="text-sm text-slate-800 dark:text-slate-200 truncate">{caseData.issueText}</p>
           <div className="flex items-center gap-2 mt-1">
-            <span className={cn("text-[10px] font-medium flex items-center gap-1", status.color)}>
-              <StatusIcon size={10} />
-              {status.label}
-            </span>
-            <span className="text-[10px] text-slate-600">·</span>
             <span className="text-[10px] text-slate-500">
               {getRelativeTime(caseData.createdAt)}
             </span>
           </div>
         </div>
 
-        {/* Severity badge */}
-        <span
-          className={cn(
-            "text-[10px] font-bold uppercase px-2 py-0.5 rounded-full border",
-            getSeverityColor(caseData.severity)
-          )}
-        >
-          {caseData.severity}
-        </span>
 
         {/* Expand icon */}
         {expanded ? (
@@ -190,37 +177,25 @@ function CaseCard({
             className="overflow-hidden"
           >
             <div className="px-4 pb-4 space-y-3 border-t border-slate-200 dark:border-slate-800">
-              {/* Immediate First Aid (Always Visible) */}
-              {otherActions.length > 0 && (
-                <div className="mt-3 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
-                  <p className="text-[10px] font-bold text-amber-600 dark:text-amber-400 mb-1 flex items-center gap-1 uppercase tracking-wider">
-                    <AlertTriangle size={12} /> Immediate Action Required
-                  </p>
-                  <ul className="mt-2 space-y-1">
-                    {otherActions.map((s, i) => (
-                      <li key={i} className="text-[11px] font-medium text-slate-800 dark:text-slate-200 flex items-start gap-1.5">
-                        <span className="text-amber-500 mt-0.5">•</span>
-                        {s}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
+              {/* Situational Advice */}
+              <div className="mt-3">
+                <SituationalAdvice caseData={caseData} />
+              </div>
 
-              {/* AI Summary & Medicines */}
+              {/* AI Summary & Medicines — only if NOT pending */}
               {caseData.status === "pending" ? (
                 <div className="mt-3 p-3 rounded-lg bg-slate-100 dark:bg-slate-800/50 border border-slate-300 dark:border-slate-700/50">
                   <p className="text-[10px] font-medium text-slate-600 dark:text-slate-400 mb-1 flex items-center gap-1">
                     <Clock size={10} /> Pending Doctor Review
                   </p>
-                  <p className="text-xs text-slate-700 dark:text-slate-300">
-                    Specific medical protocol and medicine recommendations will be visible once a doctor reviews and approves your case.
+                  <p className="text-xs text-slate-700 dark:text-slate-300 italic">
+                    Specific medicine recommendations will be visible once a doctor reviews and approves your case.
                   </p>
                 </div>
               ) : (
                 <div className="mt-3 p-3 rounded-lg bg-purple-500/5 border border-purple-500/10">
                   <p className="text-[10px] font-medium text-purple-400 mb-1 flex items-center gap-1">
-                    <Sparkles size={10} /> Medical Protocol
+                    <Sparkles size={10} /> Approved Medical Protocol
                   </p>
                   {caseData.aiSummary && <p className="text-xs text-slate-700 dark:text-slate-300 mb-2">{caseData.aiSummary}</p>}
                   {medicines.length > 0 && (
@@ -233,6 +208,13 @@ function CaseCard({
                       ))}
                     </ul>
                   )}
+                </div>
+              )}
+
+              {/* Chat — only if assigned or further */}
+              {caseData.status !== "pending" && (
+                <div className="mt-3">
+                  <CaseChat caseId={caseData.id} phone={phone} />
                 </div>
               )}
 
@@ -254,8 +236,6 @@ function CaseCard({
                 {caseData.accuracy > 0 && ` · ±${Math.round(caseData.accuracy)}m`}
               </div>
 
-              {/* Chat */}
-              <CaseChat caseId={caseData.id} phone={phone} />
             </div>
           </motion.div>
         )}

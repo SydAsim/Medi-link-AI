@@ -22,12 +22,25 @@ NEVER return vague medicines without full dosage details.
 Respond ONLY with valid JSON, no markdown:
 {
   "possibleConditions": ["condition1"],
-  "recommendedActions": ["Medicine Name (Brand) — dose — route — frequency — stomach — adult — purpose", "Next action"],
+  "recommendedActions": ["Medicine Name (Brand) — dose — route — frequency — stomach — adult — purpose"],
+  "situationalSuggestions": ["Immediate first aid / situational advice (e.g., 'Apply pressure', 'Sit upright')"],
+  "safetyWarnings": ["CRITICAL: Patient allergic to Penicillin. Do NOT use Augmentin."], 
   "triageLevel": "critical|high|medium|low",
   "confidence": 0.0-1.0,
   "summary": "Clinical summary",
   "requiresImmediate": true|false
-}`;
+}
+
+SAFETY RULES:
+1. Compare recommendedActions against the provided [PATIENT HISTORY], which includes:
+   - Known Allergies & Chronic Conditions
+   - Previous Prescriptions/Medications
+   - Uploaded Medical Records (OCR text or summaries)
+2. If an allergy exists (e.g., Penicillin mentioned in history or previous records), flag it in safetyWarnings and suggest an alternative (e.g., Clarithromycin).
+3. Check for chronic conditions (e.g., Asthma) that might interact with recommended meds (e.g., Ibuprofen).
+4. If a patient is already taking a medication, ensure the new recommendation does not double-dose or cause a severe interaction.
+5. If no history is provided, assume no known allergies but advise caution in safetyWarnings.
+6. If the patient has uploaded a medical record, prioritize findings in that record for safety checks.`;
 
 // ─── Condition-Specific Fallbacks ────────────────────────────
 const FALLBACKS: Record<string, AIAnalysis> = {
@@ -179,26 +192,58 @@ function matchFallback(text: string): AIAnalysis {
 
 function parseAIResponse(text: string): AIAnalysis {
   let jsonStr = text.trim();
-  const match = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
-  if (match) jsonStr = match[1].trim();
+  const match = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (match) {
+    jsonStr = match[1].trim();
+  } else {
+    // If no markdown block but there might be text before/after the JSON
+    const firstBrace = jsonStr.indexOf('{');
+    const lastBrace = jsonStr.lastIndexOf('}');
+    if (firstBrace !== -1 && lastBrace !== -1) {
+      jsonStr = jsonStr.slice(firstBrace, lastBrace + 1);
+    }
+  }
+
   try {
     const p = JSON.parse(jsonStr);
+    const rawTriage = String(p.triageLevel || "").toLowerCase().trim();
+    const finalTriage = ["critical", "high", "medium", "low"].includes(rawTriage) ? rawTriage : "medium";
+    
+    // Sometimes LLMs return string "true" instead of boolean true
+    const isImmediate = p.requiresImmediate === true || String(p.requiresImmediate).toLowerCase() === "true";
+
     return {
-      possibleConditions: p.possibleConditions || [],
-      recommendedActions: p.recommendedActions || [],
-      triageLevel: (["critical","high","medium","low"].includes(p.triageLevel) ? p.triageLevel : "medium") as Severity,
-      confidence: Math.min(1, Math.max(0, p.confidence || 0.5)),
+      possibleConditions: Array.isArray(p.possibleConditions) ? p.possibleConditions : [],
+      recommendedActions: Array.isArray(p.recommendedActions) ? p.recommendedActions : [],
+      situationalSuggestions: Array.isArray(p.situationalSuggestions) ? p.situationalSuggestions : [],
+      safetyWarnings: Array.isArray(p.safetyWarnings) ? p.safetyWarnings : [],
+      triageLevel: finalTriage as Severity,
+      confidence: Math.min(1, Math.max(0, Number(p.confidence) || 0.5)),
       summary: p.summary || "Analysis complete",
-      requiresImmediate: p.requiresImmediate || false,
+      requiresImmediate: isImmediate,
     };
-  } catch {
-    return { possibleConditions: [], recommendedActions: ["Seek professional evaluation"], triageLevel: "medium", confidence: 0.3, summary: text.slice(0, 200), requiresImmediate: false };
+  } catch (err) {
+    console.warn("Failed to parse AI JSON:", err, "Raw text:", text);
+    // Attempt primitive regex fallback if JSON fails
+    const isCritical = /"triageLevel"\s*:\s*"critical"/i.test(text);
+    const isHigh = /"triageLevel"\s*:\s*"high"/i.test(text);
+    const fallbackTriage = isCritical ? "critical" : isHigh ? "high" : "medium";
+    const fallbackImmediate = /"requiresImmediate"\s*:\s*true/i.test(text) || isCritical;
+
+    return { 
+      possibleConditions: [], 
+      recommendedActions: ["Seek professional evaluation"], 
+      triageLevel: fallbackTriage, 
+      confidence: 0.3, 
+      summary: text.replace(/```json|```/g, '').slice(0, 200).trim() + "...", 
+      requiresImmediate: fallbackImmediate 
+    };
   }
 }
 
-async function analyzeWithGemini(symptoms: string, description: string, imageBase64?: string): Promise<AIAnalysis> {
+async function analyzeWithGemini(symptoms: string, description: string, patientHistory?: string, imageBase64?: string): Promise<AIAnalysis> {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
-  const textPart = { text: `${TRIAGE_PROMPT}\n\nPatient Symptoms: ${symptoms}\nDetails: ${description}` };
+  const textPart = { text: `${TRIAGE_PROMPT}\n\n[PATIENT HISTORY]:\n${patientHistory || "No historical records provided."}\n\n[CURRENT CASE]:\nSymptoms: ${symptoms}\nDetails: ${description}` };
   const parts: any[] = [textPart];
   if (imageBase64) parts.push({ inlineData: { mimeType: "image/jpeg", data: imageBase64 } });
 
@@ -214,10 +259,10 @@ async function analyzeWithGemini(symptoms: string, description: string, imageBas
   return parseAIResponse(text);
 }
 
-async function analyzeWithOpenAI(symptoms: string, description: string, imageBase64?: string): Promise<AIAnalysis> {
+async function analyzeWithOpenAI(symptoms: string, description: string, patientHistory?: string, imageBase64?: string): Promise<AIAnalysis> {
   const userContent: any = imageBase64
-    ? [{ type: "text", text: `Symptoms: ${symptoms}\nDetails: ${description}` }, { type: "image_url", image_url: { url: `data:image/jpeg;base64,${imageBase64}` } }]
-    : `Symptoms: ${symptoms}\nDetails: ${description}`;
+    ? [{ type: "text", text: `[PATIENT HISTORY]:\n${patientHistory || "None"}\n\n[CASE]:\nSymptoms: ${symptoms}\nDetails: ${description}` }, { type: "image_url", image_url: { url: `data:image/jpeg;base64,${imageBase64}` } }]
+    : `[PATIENT HISTORY]:\n${patientHistory || "None"}\n\n[CASE]:\nSymptoms: ${symptoms}\nDetails: ${description}`;
 
   const res = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
@@ -231,11 +276,11 @@ async function analyzeWithOpenAI(symptoms: string, description: string, imageBas
   return parseAIResponse(text);
 }
 
-export async function analyzeSymptoms(symptoms: string, description: string, imageBase64?: string): Promise<AIAnalysis> {
+export async function analyzeSymptoms(symptoms: string, description: string, patientHistory?: string, imageBase64?: string): Promise<AIAnalysis> {
   if (GEMINI_API_KEY && GEMINI_API_KEY !== "xxx") {
     try {
-      console.log("🔵 Gemini analysis...");
-      const r = await analyzeWithGemini(symptoms, description, imageBase64);
+      console.log("🔵 Gemini safety analysis...");
+      const r = await analyzeWithGemini(symptoms, description, patientHistory, imageBase64);
       console.log("✅ Gemini success");
       return r;
     } catch (e) { console.warn("⚠️ Gemini failed:", e); }
@@ -243,7 +288,7 @@ export async function analyzeSymptoms(symptoms: string, description: string, ima
   if (OPENAI_API_KEY && OPENAI_API_KEY !== "xxx") {
     try {
       console.log("🟡 OpenAI fallback...");
-      const r = await analyzeWithOpenAI(symptoms, description, imageBase64);
+      const r = await analyzeWithOpenAI(symptoms, description, patientHistory, imageBase64);
       console.log("✅ OpenAI success");
       return r;
     } catch (e) { console.warn("⚠️ OpenAI failed:", e); }

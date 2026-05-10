@@ -6,10 +6,16 @@ import { motion } from "framer-motion";
 import { Activity, Heart, Stethoscope, Siren, ArrowRight, Zap, Shield, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import { ThemeToggle } from "@/components/common/ThemeToggle";
 
 export default function HomePage() {
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 relative overflow-hidden">
+      {/* Theme Toggle */}
+      <div className="absolute top-6 right-6 z-50">
+        <ThemeToggle />
+      </div>
+
       {/* Background Effects */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-1/4 -left-32 w-96 h-96 bg-red-500/5 rounded-full blur-3xl" />
@@ -171,7 +177,7 @@ export default function HomePage() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 1 }}
-          className="mt-12 text-xs text-slate-700"
+          className="mt-12 text-xs text-slate-500 dark:text-slate-400"
         >
           MediLink Emergency Response Platform — Built for Hackathon 2026
         </motion.p>

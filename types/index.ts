@@ -15,6 +15,33 @@ export interface GeoLocation {
   timestamp: number;
 }
 
+export interface Medication {
+  id: string;
+  name: string;
+  dosage: string;
+  frequency: string;
+  startDate: number;
+  endDate?: number;
+  prescribedBy: string;
+  remainingDoses: number;
+  totalDoses: number;
+}
+
+export interface PatientProfile {
+  phone: string;
+  name?: string;
+  allergies: string[];
+  chronicConditions: string[];
+  bloodGroup?: string;
+  currentMedications: Medication[];
+  pastMedicalRecords: string[]; // URLs to uploaded documents
+  emergencyContact?: {
+    name: string;
+    phone: string;
+    relation: string;
+  };
+}
+
 export interface PatientCase {
   id: string;
   patientPhone: string;
@@ -28,20 +55,29 @@ export interface PatientCase {
   severity: Severity;
   aiSummary: string;
   aiSuggestions: string[];
+  situationalSuggestions?: string[]; // New: First aid/immediate actions
   emergencyRequired: boolean;
   status: CaseStatus;
   assignedDoctorId?: string;
   createdAt: number;
   updatedAt?: number;
+  // New fields for medical safety
+  medicalHistorySnapshot?: {
+    allergies: string[];
+    conditions: string[];
+  };
+  safetyAlerts?: string[]; // AI-generated warnings (e.g., "Allergic to Penicillin")
 }
 
 export interface AIAnalysis {
   possibleConditions: string[];
   recommendedActions: string[];
+  situationalSuggestions?: string[]; // New: First aid/immediate actions
   triageLevel: Severity;
   confidence: number;
   summary: string;
   requiresImmediate: boolean;
+  safetyWarnings?: string[]; // New: AI flags allergies or contraindications
 }
 
 export interface ChatMessage {

@@ -7,7 +7,8 @@ import { SeverityBadge } from "@/components/common/SeverityBadge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { updateCase } from "@/services/caseService";
-import type { PatientCase } from "@/types";
+import { addPrescriptionToHistory } from "@/services/profileService";
+import type { PatientCase, Medication } from "@/types";
 
 interface AIAnalysisPanelProps {
   caseData: PatientCase | null;
@@ -40,6 +41,27 @@ export function AIAnalysisPanel({ caseData }: AIAnalysisPanelProps) {
     try {
       const updatedSuggestions = [...otherActions, ...editedMeds.filter(m => m.trim() !== "")];
       await updateCase(caseData.id, { aiSuggestions: updatedSuggestions });
+      
+      // Save to Patient Profile History
+      const medList = editedMeds.filter(m => m.trim() !== "");
+      for (const m of medList) {
+        const p = parseMedicine(m);
+        if (p) {
+          // Attempt to extract dose and frequency from details
+          const dosage = p.details[0] || "As prescribed";
+          const frequency = p.details[2] || "Once daily";
+          
+          await addPrescriptionToHistory(caseData.patientPhone, {
+            name: p.name,
+            dosage: dosage,
+            frequency: frequency,
+            remainingDoses: 30, // Default to 30 doses
+            totalDoses: 30,
+            prescribedBy: "Dr. Physician (MediLink)",
+          });
+        }
+      }
+
       setIsEditing(false);
     } catch (e) {
       console.error("Failed to save medicines", e);

@@ -18,7 +18,8 @@ import { LiveLocationStatus } from "./LiveLocationStatus";
 import { ImageUploader } from "./ImageUploader";
 import { createCase, uploadCaseImage } from "@/services/caseService";
 import { analyzeSymptoms } from "@/services/aiService";
-import type { Language, Severity } from "@/types";
+import { getPatientProfile } from "@/services/profileService";
+import type { Language, Severity, PatientProfile } from "@/types";
 
 interface PatientFormProps {
   onCaseSubmitted: (caseId: string) => void;
@@ -64,16 +65,33 @@ export function PatientForm({ onCaseSubmitted }: PatientFormProps) {
   const [submitted, setSubmitted] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
+  // Profile data for safety checks
+  const [profile, setProfile] = useState<PatientProfile | null>(null);
+
   // ─── Load phone from localStorage ─────────────────────────
   useEffect(() => {
     const saved = localStorage.getItem("medilink_phone");
     if (saved) setPhone(saved);
   }, []);
 
-  const handlePhoneChange = (val: string) => {
+  const handlePhoneChange = async (val: string) => {
     setPhone(val);
     localStorage.setItem("medilink_phone", val);
+    
+    // Fetch profile for safety context if phone looks valid
+    if (val.trim().length >= 10) {
+      try {
+        const p = await getPatientProfile(val.trim());
+        setProfile(p);
+      } catch (e) { console.warn("Failed to load profile context:", e); }
+    }
   };
+
+  useEffect(() => {
+    if (phone.trim().length >= 10) {
+      handlePhoneChange(phone.trim());
+    }
+  }, []);
 
   // ─── GPS Tracking ─────────────────────────────────────────
   const startGPS = useCallback(() => {
@@ -223,12 +241,19 @@ export function PatientForm({ onCaseSubmitted }: PatientFormProps) {
         }
       }
 
-      // 2. Get AI analysis
+      // 2. Get AI analysis with patient safety context
       let aiResult;
+      const historyContext = profile ? `
+        Known Allergies: ${profile.allergies.join(", ") || "None"}
+        Chronic Conditions: ${profile.chronicConditions.join(", ") || "None"}
+        Current Medications: ${profile.currentMedications.map(m => m.name).join(", ") || "None"}
+      ` : "No medical history available.";
+
       try {
         aiResult = await analyzeSymptoms(
           issueTextRef.current,
-          `Language: ${language}. Patient phone: ${phone}.`
+          `Language: ${language}. Patient phone: ${phone}.`,
+          historyContext
         );
       } catch (err) {
         console.warn("AI analysis failed:", err);
@@ -254,8 +279,16 @@ export function PatientForm({ onCaseSubmitted }: PatientFormProps) {
         severity: aiResult.triageLevel,
         aiSummary: aiResult.summary,
         aiSuggestions: aiResult.recommendedActions,
+        situationalSuggestions: aiResult.situationalSuggestions || [],
         emergencyRequired: aiResult.requiresImmediate,
         status: "pending",
+        ...(profile ? {
+          medicalHistorySnapshot: {
+            allergies: profile.allergies || [],
+            conditions: profile.chronicConditions || [],
+          }
+        } : {}),
+        safetyAlerts: aiResult.safetyWarnings || [],
       });
 
       setSubmitted(true);

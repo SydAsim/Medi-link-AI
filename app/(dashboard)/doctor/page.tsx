@@ -10,6 +10,7 @@ import { CardWrapper } from "@/components/common/CardWrapper";
 import { SeverityBadge } from "@/components/common/SeverityBadge";
 import { DoctorCaseList } from "@/components/doctor/DoctorCaseList";
 import { AIAnalysisPanel } from "@/components/doctor/AIAnalysisPanel";
+import { PatientSafetyPanel } from "@/components/doctor/PatientSafetyPanel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { subscribeToAllCases, updateCaseStatus } from "@/services/caseService";
@@ -171,6 +172,13 @@ export default function DoctorPage() {
                   </Button>
                 ))}
               </div>
+            </CardWrapper>
+          )}
+
+          {/* Patient Safety & History Context */}
+          {selectedCase && (
+            <CardWrapper hover={false} className="!p-4 border-l-4 border-l-red-500/50">
+              <PatientSafetyPanel caseData={selectedCase} />
             </CardWrapper>
           )}
 

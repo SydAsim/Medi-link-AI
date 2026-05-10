@@ -20,10 +20,17 @@ export function EmergencyCaseList({ onSelectCase, selectedId }: EmergencyCaseLis
 
   useEffect(() => {
     const unsub = subscribeToAllCases((all) => {
-      // Client-side filter: HIGH + CRITICAL severity, not completed
+      // Show ALL active cases in the dispatcher portal, but prioritize critical/high
       const emergency = all
-        .filter((c) => (c.severity === "high" || c.severity === "critical") && c.status !== "completed" && c.status !== "closed")
-        .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+        .filter((c) => c.status !== "completed" && c.status !== "closed")
+        .sort((a, b) => {
+          // Sort by severity first, then by date
+          const severityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
+          const sevA = severityOrder[a.severity] ?? 4;
+          const sevB = severityOrder[b.severity] ?? 4;
+          if (sevA !== sevB) return sevA - sevB;
+          return (b.createdAt || 0) - (a.createdAt || 0);
+        });
       setCases(emergency);
       setLoading(false);
     });
