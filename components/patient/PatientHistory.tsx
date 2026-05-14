@@ -182,8 +182,8 @@ function CaseCard({
                 <SituationalAdvice caseData={caseData} />
               </div>
 
-              {/* AI Summary & Medicines — only if NOT pending */}
-              {caseData.status === "pending" ? (
+              {/* AI Summary & Medicines — only if EXPLICITLY approved by doctor */}
+              {!caseData.protocolApproved ? (
                 <div className="mt-3 p-3 rounded-lg bg-slate-100 dark:bg-slate-800/50 border border-slate-300 dark:border-slate-700/50">
                   <p className="text-[10px] font-medium text-slate-600 dark:text-slate-400 mb-1 flex items-center gap-1">
                     <Clock size={10} /> Pending Doctor Review
@@ -230,10 +230,18 @@ function CaseCard({
               )}
 
               {/* Location */}
-              <div className="flex items-center gap-2 text-[11px] text-slate-500">
-                <MapPin size={10} />
-                {caseData.latitude.toFixed(4)}, {caseData.longitude.toFixed(4)}
-                {caseData.accuracy > 0 && ` · ±${Math.round(caseData.accuracy)}m`}
+              <div className="flex flex-col gap-1 text-[11px] text-slate-500">
+                {caseData.address && (
+                  <div className="flex items-start gap-2 text-slate-400">
+                    <MapPin size={10} className="mt-0.5 flex-shrink-0" />
+                    <span className="leading-tight">{caseData.address}</span>
+                  </div>
+                )}
+                <div className="flex items-center gap-2 opacity-70">
+                  <MapPin size={10} className="flex-shrink-0" />
+                  {caseData.latitude.toFixed(4)}, {caseData.longitude.toFixed(4)}
+                  {caseData.accuracy > 0 && ` · ±${Math.round(caseData.accuracy)}m`}
+                </div>
               </div>
 
             </div>
@@ -245,7 +253,7 @@ function CaseCard({
 }
 
 // ─── Inline Chat ─────────────────────────────────────────────
-function CaseChat({ caseId, phone }: { caseId: string; phone: string }) {
+export function CaseChat({ caseId, phone }: { caseId: string; phone: string }) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [newMsg, setNewMsg] = useState("");
   const [sending, setSending] = useState(false);

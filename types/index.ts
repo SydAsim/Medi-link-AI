@@ -58,7 +58,10 @@ export interface PatientCase {
   situationalSuggestions?: string[]; // New: First aid/immediate actions
   emergencyRequired: boolean;
   status: CaseStatus;
+  address?: string;
+  nearbyLandmarks?: string[];
   assignedDoctorId?: string;
+  protocolApproved?: boolean;
   createdAt: number;
   updatedAt?: number;
   // New fields for medical safety

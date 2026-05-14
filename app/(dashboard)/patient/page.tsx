@@ -10,9 +10,12 @@ import {
   Send,
   History,
   ShieldAlert,
+  MapPin,
+  Sparkles,
+  X,
 } from "lucide-react";
 import { PatientForm } from "@/components/patient/PatientForm";
-import { PatientHistory } from "@/components/patient/PatientHistory";
+import { PatientHistory, CaseChat } from "@/components/patient/PatientHistory";
 import { MedicalHistoryTab } from "@/components/patient/MedicalHistoryTab";
 import { ActiveEmergencyAlert, ActiveCaseChat } from "@/components/patient/ActiveCasePanel";
 import { SituationalAdvice } from "@/components/patient/SituationalAdvice";
@@ -32,6 +35,7 @@ export default function PatientPage() {
   const [cases, setCases] = useState<PatientCase[]>([]);
   const [profile, setProfile] = useState<PatientProfile | null>(null);
   const [activeMessages, setActiveMessages] = useState<ChatMessage[]>([]);
+  const [isPanelClosed, setIsPanelClosed] = useState(false);
 
   // Load phone from localStorage
   useEffect(() => {
@@ -57,6 +61,17 @@ export default function PatientPage() {
     };
   }, [phone]);
 
+  // Load panel state from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem("medilink_panel_closed");
+    if (saved === "true") setIsPanelClosed(true);
+  }, []);
+
+  const setPanelClosed = (closed: boolean) => {
+    setIsPanelClosed(closed);
+    localStorage.setItem("medilink_panel_closed", closed.toString());
+  };
+
   // Subscribe to profile for reminders
   useEffect(() => {
     if (!phone.trim()) return;
@@ -79,7 +94,7 @@ export default function PatientPage() {
     return () => unsub();
   }, [phone]);
 
-  const activeCase = cases.find(c => ["pending", "assigned", "in-progress", "dispatched", "arrived"].includes(c.status));
+  const activeCase = cases[0]; // Get the most recent case regardless of status to stay in sync with history
 
   // Subscribe to active case messages
   useEffect(() => {
@@ -98,10 +113,13 @@ export default function PatientPage() {
 
   const handleCaseSubmitted = (caseId: string) => {
     setLastCaseId(caseId);
+    setPanelClosed(false);
   };
 
+  const showActiveCase = activeCase && !isPanelClosed && activeTab === "report";
+
   return (
-    <div className={cn("mx-auto space-y-5 transition-all duration-500", hasDoctorMessage && activeTab === "report" ? "max-w-6xl" : "max-w-xl")}>
+    <div className={cn("mx-auto space-y-5 transition-all duration-500", showActiveCase ? "max-w-6xl" : "max-w-xl")}>
       {/* Page Header */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}
@@ -204,33 +222,8 @@ export default function PatientPage() {
         transition={{ duration: 0.2 }}
       >
         {activeTab === "report" ? (
-          <div className="space-y-4">
-            <div className="max-w-xl mx-auto space-y-4">
-              {/* Approved Medicine — only after approval */}
-              {isAnalyzed && activeCase && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="p-4 rounded-xl border border-purple-500/20 bg-purple-500/5"
-                >
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="p-1.5 rounded-lg bg-purple-500/20 text-purple-400">
-                      <ShieldAlert size={16} />
-                    </div>
-                    <h3 className="text-xs font-bold text-purple-400 uppercase tracking-wider">Approved Medical Protocol</h3>
-                  </div>
-                  <p className="text-xs text-slate-700 dark:text-slate-300 mb-3">{activeCase.aiSummary}</p>
-                  <div className="space-y-2">
-                    {activeCase.aiSuggestions?.filter(s => s.includes("—")).map((med, i) => (
-                      <div key={i} className="flex items-start gap-2 text-[11px] text-slate-600 dark:text-slate-400">
-                        <span className="text-purple-500">💊</span>
-                        {med}
-                      </div>
-                    ))}
-                  </div>
-                </motion.div>
-              )}
-
+          <div className={cn("transition-all duration-500", showActiveCase ? "grid grid-cols-1 lg:grid-cols-12 gap-6" : "max-w-xl mx-auto space-y-4")}>
+            <div className={cn("space-y-4", showActiveCase ? "lg:col-span-5" : "")}>
               <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/30 backdrop-blur-sm p-5">
                 <div className="flex items-center gap-2 mb-5">
                   <AlertTriangle size={16} className="text-red-400" />
@@ -239,6 +232,75 @@ export default function PatientPage() {
                 <PatientForm onCaseSubmitted={handleCaseSubmitted} />
               </div>
             </div>
+
+            {showActiveCase && (
+              <div className="lg:col-span-7 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/30 p-5 relative">
+                <button 
+                  onClick={() => setPanelClosed(true)}
+                  className="absolute top-4 right-4 p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-800 dark:hover:text-white transition-colors z-10"
+                  title="Close panel"
+                >
+                  <X size={16} />
+                </button>
+                <div className="space-y-3">
+                  <SituationalAdvice caseData={activeCase} />
+
+                  {/* AI Summary & Medicines — only if EXPLICITLY approved by doctor */}
+                  {!activeCase.protocolApproved ? (
+                    <div className="mt-3 p-3 rounded-lg bg-slate-100 dark:bg-slate-800/50 border border-slate-300 dark:border-slate-700/50">
+                      <p className="text-[10px] font-medium text-slate-600 dark:text-slate-400 mb-1 flex items-center gap-1">
+                        <Clock size={10} /> Pending Doctor Review
+                      </p>
+                      <p className="text-xs text-slate-700 dark:text-slate-300 italic">
+                        Specific medicine recommendations will be visible once a doctor reviews and approves your case.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="mt-3 p-3 rounded-lg bg-purple-500/5 border border-purple-500/10">
+                      <p className="text-[10px] font-medium text-purple-400 mb-1 flex items-center gap-1">
+                        <Sparkles size={10} /> Approved Medical Protocol
+                      </p>
+                      {activeCase.aiSummary && <p className="text-xs text-slate-700 dark:text-slate-300 mb-2">{activeCase.aiSummary}</p>}
+                      {activeCase.aiSuggestions?.filter((a) => a.includes("—")).length ? (
+                        <ul className="space-y-1">
+                          {activeCase.aiSuggestions.filter((a) => a.includes("—")).map((s, i) => (
+                            <li key={i} className="text-[11px] text-slate-700 dark:text-slate-300 flex items-start gap-1.5">
+                              <span className="text-purple-400 mt-0.5">💊</span>
+                              {s}
+                            </li>
+                          ))}
+                        </ul>
+                      ) : null}
+                    </div>
+                  )}
+
+                  {/* Chat — only if assigned or further */}
+                  {activeCase.status !== "pending" && (
+                    <div className="mt-3">
+                      <CaseChat caseId={activeCase.id} phone={phone} />
+                    </div>
+                  )}
+
+                  {/* Image */}
+                  {activeCase.imageUrl && (
+                    <div className="rounded-lg overflow-hidden border border-slate-300 dark:border-slate-700">
+                      <img
+                        src={activeCase.imageUrl}
+                        alt="Case image"
+                        className="w-full max-h-40 object-cover"
+                      />
+                    </div>
+                  )}
+
+                  {/* Location */}
+                  <div className="flex items-center gap-2 text-[11px] text-slate-500">
+                    <MapPin size={10} />
+                    {activeCase.latitude.toFixed(4)}, {activeCase.longitude.toFixed(4)}
+                    {activeCase.accuracy > 0 && ` · ±${Math.round(activeCase.accuracy)}m`}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         ) : activeTab === "history" ? (
           <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/30 backdrop-blur-sm p-5">

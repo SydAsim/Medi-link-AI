@@ -9,6 +9,7 @@ interface LiveLocationStatusProps {
   latitude: number | null;
   longitude: number | null;
   accuracy: number | null;
+  address: string | null;
   loading: boolean;
   error: string | null;
   onRefresh: () => void;
@@ -18,6 +19,7 @@ export function LiveLocationStatus({
   latitude,
   longitude,
   accuracy,
+  address,
   loading,
   error,
   onRefresh,
@@ -80,10 +82,18 @@ export function LiveLocationStatus({
             )}
           </div>
           {isConnected && (
-            <p className="text-[11px] text-slate-500 mt-0.5">
-              {latitude?.toFixed(4)}, {longitude?.toFixed(4)}
-              {accuracy && ` · ±${Math.round(accuracy)}m`}
-            </p>
+            <div className="space-y-0.5">
+              <p className={cn(
+                "text-[11px] font-medium leading-tight",
+                address?.includes("Network") ? "text-amber-500/80" : "text-emerald-500/80"
+              )}>
+                {address || `${latitude?.toFixed(4)}, ${longitude?.toFixed(4)}`}
+              </p>
+              <p className="text-[10px] text-slate-500 opacity-70">
+                {latitude?.toFixed(4)}, {longitude?.toFixed(4)}
+                {accuracy && ` · ±${Math.round(accuracy)}m`}
+              </p>
+            </div>
           )}
           {error && (
             <p className="text-[11px] text-red-400/70 mt-0.5">{error}</p>

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Brain, Pill, AlertTriangle, Activity, ChevronDown, ChevronUp, Sparkles, Edit2, CheckCircle, Loader2 } from "lucide-react";
+import { Brain, Pill, AlertTriangle, Activity, ChevronDown, ChevronUp, Sparkles, Edit2, CheckCircle, Loader2, MapPin } from "lucide-react";
 import { SeverityBadge } from "@/components/common/SeverityBadge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -40,7 +40,10 @@ export function AIAnalysisPanel({ caseData }: AIAnalysisPanelProps) {
     setSaving(true);
     try {
       const updatedSuggestions = [...otherActions, ...editedMeds.filter(m => m.trim() !== "")];
-      await updateCase(caseData.id, { aiSuggestions: updatedSuggestions });
+      await updateCase(caseData.id, { 
+        aiSuggestions: updatedSuggestions,
+        protocolApproved: true 
+      });
       
       // Save to Patient Profile History
       const medList = editedMeds.filter(m => m.trim() !== "");
@@ -104,6 +107,30 @@ export function AIAnalysisPanel({ caseData }: AIAnalysisPanelProps) {
       <div className="p-3 rounded-lg bg-slate-100 dark:bg-slate-800/40 border border-slate-300 dark:border-slate-700/50">
         <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">{caseData.aiSummary}</p>
       </div>
+      
+      {/* Location Details */}
+      {(caseData.address || caseData.nearbyLandmarks) && (
+        <div className="p-3 rounded-lg bg-blue-500/5 border border-blue-500/10 space-y-2">
+          <div className="flex items-center gap-2">
+            <MapPin size={14} className="text-blue-400" />
+            <p className="text-xs font-semibold text-blue-400 uppercase tracking-wider">Patient Location Context</p>
+          </div>
+          {caseData.address && (
+            <p className="text-[11px] text-slate-700 dark:text-slate-300 leading-tight">
+              {caseData.address}
+            </p>
+          )}
+          {caseData.nearbyLandmarks && caseData.nearbyLandmarks.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mt-1">
+              {caseData.nearbyLandmarks.map((l, i) => (
+                <span key={i} className="px-1.5 py-0.5 rounded bg-blue-500/10 text-[9px] text-blue-400 border border-blue-500/20">
+                  📍 {l}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Emergency Alert */}
       {caseData.emergencyRequired && (

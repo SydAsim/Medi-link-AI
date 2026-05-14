@@ -49,6 +49,8 @@ export function PatientForm({ onCaseSubmitted }: PatientFormProps) {
   const [accuracy, setAccuracy] = useState<number | null>(null);
   const [gpsLoading, setGpsLoading] = useState(true);
   const [gpsError, setGpsError] = useState<string | null>(null);
+  const [address, setAddress] = useState<string | null>(null);
+  const [nearbyLandmarks, setNearbyLandmarks] = useState<string[]>([]);
   const watchIdRef = useRef<number | null>(null);
 
   // Voice
@@ -93,6 +95,47 @@ export function PatientForm({ onCaseSubmitted }: PatientFormProps) {
     }
   }, []);
 
+  // ─── Reverse Geocoding ─────────────────────────────────────
+  const performReverseGeocoding = async (lat: number, lon: number) => {
+    try {
+      const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&addressdetails=1`, {
+        headers: { 'User-Agent': 'MediLink-Emergency-App' }
+      });
+      const data = await response.json();
+      if (data && data.display_name) {
+        setAddress(data.display_name);
+        const landmarks = [];
+        if (data.address.amenity) landmarks.push(data.address.amenity);
+        if (data.address.hospital) landmarks.push(data.address.hospital);
+        if (data.address.emergency) landmarks.push(data.address.emergency);
+        if (data.address.road) landmarks.push(data.address.road);
+        if (data.address.suburb) landmarks.push(data.address.suburb);
+        setNearbyLandmarks(landmarks);
+      }
+    } catch (e) { console.warn("Reverse geocoding failed:", e); }
+  };
+
+  // ─── IP Fallback ──────────────────────────────────────────
+  const fetchIPLocationFallback = async () => {
+    try {
+      setGpsLoading(true);
+      const response = await fetch('https://ipapi.co/json/');
+      const data = await response.json();
+      if (data.latitude && data.longitude) {
+        setLatitude(data.latitude);
+        setLongitude(data.longitude);
+        setAccuracy(2000); // IP accuracy is low
+        setAddress(`${data.city}, ${data.region}, ${data.country_name} (Estimated via Network)`);
+        setGpsError(null);
+      }
+    } catch (e) {
+      console.warn("IP Fallback failed:", e);
+      setGpsError("Location blocked. Please enable GPS for emergency help.");
+    } finally {
+      setGpsLoading(false);
+    }
+  };
+
   // ─── GPS Tracking ─────────────────────────────────────────
   const startGPS = useCallback(() => {
     if (!navigator.geolocation) {
@@ -115,12 +158,18 @@ export function PatientForm({ onCaseSubmitted }: PatientFormProps) {
         setAccuracy(pos.coords.accuracy);
         setGpsLoading(false);
         setGpsError(null);
+        performReverseGeocoding(pos.coords.latitude, pos.coords.longitude);
       },
       (err) => {
+        console.warn("GPS Error, attempting fallback:", err.message);
         setGpsError(err.message);
         setGpsLoading(false);
+        // If user blocked or other error, try IP fallback
+        if (err.code === 1 || err.code === 3) {
+          fetchIPLocationFallback();
+        }
       },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
   }, []);
 
@@ -276,6 +325,8 @@ export function PatientForm({ onCaseSubmitted }: PatientFormProps) {
         latitude,
         longitude,
         accuracy: accuracy || 0,
+        address: address || undefined,
+        nearbyLandmarks: nearbyLandmarks.length > 0 ? nearbyLandmarks : undefined,
         severity: aiResult.triageLevel,
         aiSummary: aiResult.summary,
         aiSuggestions: aiResult.recommendedActions,
@@ -369,6 +420,7 @@ export function PatientForm({ onCaseSubmitted }: PatientFormProps) {
           latitude={latitude}
           longitude={longitude}
           accuracy={accuracy}
+          address={address}
           loading={gpsLoading}
           error={gpsError}
           onRefresh={startGPS}
