@@ -33,9 +33,16 @@ export default function DoctorPage() {
 
   // Subscribe to all cases for stats
   useEffect(() => {
-    const unsub = subscribeToAllCases((cases) => setAllCases(cases));
+    const unsub = subscribeToAllCases((cases) => {
+      setAllCases(cases);
+      // Keep selected case in sync with latest data
+      if (selectedCase) {
+        const latest = cases.find(c => c.id === selectedCase.id);
+        if (latest) setSelectedCase(latest);
+      }
+    });
     return () => unsub();
-  }, []);
+  }, [selectedCase?.id]);
 
   // Subscribe to chat for selected case
   useEffect(() => {
@@ -154,7 +161,7 @@ export default function DoctorPage() {
         {/* Right Panel — Analysis + Actions + Chat */}
         <div className="lg:col-span-7 space-y-4">
           {/* AI Analysis */}
-          <CardWrapper hover={false} className="!p-4">
+          <CardWrapper hover={false} className="!p-4 h-fit">
             <AIAnalysisPanel caseData={selectedCase} />
           </CardWrapper>
 

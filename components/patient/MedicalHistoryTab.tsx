@@ -12,7 +12,8 @@ import {
   History,
   Trash2,
   ChevronRight,
-  ShieldAlert
+  ShieldAlert,
+  X
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { 
@@ -29,6 +30,7 @@ export function MedicalHistoryTab({ phone }: { phone: string }) {
   const [updating, setUpdating] = useState(false);
   const [newAllergy, setNewAllergy] = useState("");
   const [newCondition, setNewCondition] = useState("");
+  const [email, setEmail] = useState("");
 
   useEffect(() => {
     if (!phone) return;
@@ -40,11 +42,21 @@ export function MedicalHistoryTab({ phone }: { phone: string }) {
     try {
       const p = await getPatientProfile(phone);
       setProfile(p);
+      if (p?.email) setEmail(p.email);
     } catch (e) {
       console.error("Failed to load profile:", e);
     } finally {
       setLoading(false);
     }
+  };
+
+  const saveEmail = async () => {
+    if (!email.trim() || !profile) return;
+    setUpdating(true);
+    try {
+      await updatePatientProfile(phone, { email: email.trim() });
+      setProfile({ ...profile, email: email.trim() });
+    } finally { setUpdating(false); }
   };
 
   const addAllergy = async () => {
@@ -79,6 +91,46 @@ export function MedicalHistoryTab({ phone }: { phone: string }) {
     } finally { setUpdating(false); }
   };
 
+  const removeAllergy = async (allergy: string) => {
+    if (!profile) return;
+    setUpdating(true);
+    try {
+      const updatedAllergies = profile.allergies.filter(a => a !== allergy);
+      await updatePatientProfile(phone, { allergies: updatedAllergies });
+      setProfile({ ...profile, allergies: updatedAllergies });
+    } finally { setUpdating(false); }
+  };
+
+  const removeCondition = async (condition: string) => {
+    if (!profile) return;
+    setUpdating(true);
+    try {
+      const updatedConditions = profile.chronicConditions.filter(c => c !== condition);
+      await updatePatientProfile(phone, { chronicConditions: updatedConditions });
+      setProfile({ ...profile, chronicConditions: updatedConditions });
+    } finally { setUpdating(false); }
+  };
+
+  const removeMedicalRecord = async (url: string) => {
+    if (!profile) return;
+    setUpdating(true);
+    try {
+      const updatedRecords = profile.pastMedicalRecords.filter(r => r !== url);
+      await updatePatientProfile(phone, { pastMedicalRecords: updatedRecords });
+      setProfile({ ...profile, pastMedicalRecords: updatedRecords });
+    } finally { setUpdating(false); }
+  };
+
+  const removeMedication = async (medId: string) => {
+    if (!profile) return;
+    setUpdating(true);
+    try {
+      const updatedMeds = profile.currentMedications.filter(m => m.id !== medId);
+      await updatePatientProfile(phone, { currentMedications: updatedMeds });
+      setProfile({ ...profile, currentMedications: updatedMeds });
+    } finally { setUpdating(false); }
+  };
+
   if (loading) return (
     <div className="h-60 flex items-center justify-center">
       <div className="h-8 w-8 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin" />
@@ -87,6 +139,35 @@ export function MedicalHistoryTab({ phone }: { phone: string }) {
 
   return (
     <div className="space-y-6">
+      {/* 0. Profile Basics (Email) */}
+      <div className="p-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950">
+        <div className="flex items-center gap-2 mb-4">
+          <History size={18} className="text-slate-500" />
+          <h3 className="font-bold text-slate-900 dark:text-white">Communication Settings</h3>
+        </div>
+        <div className="flex flex-col md:flex-row gap-4 items-end">
+          <div className="flex-1 w-full">
+            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 block">Email for Reminders</label>
+            <input 
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="Enter your registered email"
+              className="w-full text-xs p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus:outline-none focus:border-blue-500/50 transition-colors"
+            />
+          </div>
+          <button 
+            onClick={saveEmail} 
+            disabled={updating || email === profile?.email} 
+            className="px-6 py-2.5 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-xs font-bold hover:opacity-90 disabled:opacity-50 transition-all"
+          >
+            {updating ? "Saving..." : "Save Settings"}
+          </button>
+        </div>
+        <p className="text-[10px] text-slate-500 mt-2">
+          This email will be used by the CIRO Intelligence Agent to send medication reminders and emergency follow-ups.
+        </p>
+      </div>
+
       {/* 1. Safety Alerts (Allergies & Conditions) */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Allergies */}
@@ -97,8 +178,14 @@ export function MedicalHistoryTab({ phone }: { phone: string }) {
           </div>
           <div className="flex flex-wrap gap-2 mb-4">
             {profile?.allergies.length ? profile.allergies.map((a, i) => (
-              <Badge key={i} variant="outline" className="bg-white dark:bg-slate-900 text-red-500 border-red-500/30">
+              <Badge key={i} variant="outline" className="bg-white dark:bg-slate-900 text-red-500 border-red-500/30 flex items-center gap-1.5 pr-1.5 group">
                 {a}
+                <button 
+                  onClick={() => removeAllergy(a)}
+                  className="hover:bg-red-500 hover:text-white rounded-full p-0.5 transition-colors"
+                >
+                  <X size={10} />
+                </button>
               </Badge>
             )) : <p className="text-xs text-slate-500 italic">No allergies listed</p>}
           </div>
@@ -123,8 +210,14 @@ export function MedicalHistoryTab({ phone }: { phone: string }) {
           </div>
           <div className="flex flex-wrap gap-2 mb-4">
             {profile?.chronicConditions.length ? profile.chronicConditions.map((c, i) => (
-              <Badge key={i} variant="outline" className="bg-white dark:bg-slate-900 text-blue-500 border-blue-500/30">
+              <Badge key={i} variant="outline" className="bg-white dark:bg-slate-900 text-blue-500 border-blue-500/30 flex items-center gap-1.5 pr-1.5 group">
                 {c}
+                <button 
+                  onClick={() => removeCondition(c)}
+                  className="hover:bg-blue-500 hover:text-white rounded-full p-0.5 transition-colors"
+                >
+                  <X size={10} />
+                </button>
               </Badge>
             )) : <p className="text-xs text-slate-500 italic">No conditions listed</p>}
           </div>
@@ -159,21 +252,28 @@ export function MedicalHistoryTab({ phone }: { phone: string }) {
         {profile?.pastMedicalRecords.length ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {profile.pastMedicalRecords.map((url, i) => (
-              <a 
-                key={i} 
-                href={url} 
-                target="_blank" 
-                className="flex items-center gap-3 p-3 rounded-xl border border-slate-100 dark:border-slate-800 hover:border-blue-500/30 hover:bg-blue-500/5 transition-all group"
-              >
-                <div className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 group-hover:bg-blue-500/20 group-hover:text-blue-500">
-                  <FileText size={16} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">Medical Record #{i+1}</p>
-                  <p className="text-[10px] text-slate-500">Click to view document</p>
-                </div>
-                <ChevronRight size={14} className="text-slate-400" />
-              </a>
+              <div key={i} className="relative group">
+                <a 
+                  href={url} 
+                  target="_blank" 
+                  className="flex items-center gap-3 p-3 rounded-xl border border-slate-100 dark:border-slate-800 hover:border-blue-500/30 hover:bg-blue-500/5 transition-all"
+                >
+                  <div className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 group-hover:bg-blue-500/20 group-hover:text-blue-500">
+                    <FileText size={16} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">Medical Record #{i+1}</p>
+                    <p className="text-[10px] text-slate-500">Click to view document</p>
+                  </div>
+                  <ChevronRight size={14} className="text-slate-400" />
+                </a>
+                <button 
+                  onClick={() => removeMedicalRecord(url)}
+                  className="absolute -top-2 -right-2 p-1.5 rounded-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-400 hover:text-red-500 hover:border-red-500/30 opacity-0 group-hover:opacity-100 transition-all shadow-sm"
+                >
+                  <Trash2 size={12} />
+                </button>
+              </div>
             ))}
           </div>
         ) : (
@@ -200,9 +300,17 @@ export function MedicalHistoryTab({ phone }: { phone: string }) {
                     <h4 className="text-sm font-bold text-slate-900 dark:text-white">{med.name}</h4>
                     <p className="text-[10px] text-slate-500">{med.dosage} • {med.frequency}</p>
                   </div>
-                  <Badge variant="secondary" className="text-[10px]">
-                    Prescribed by {med.prescribedBy}
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary" className="text-[10px]">
+                      Prescribed by {med.prescribedBy}
+                    </Badge>
+                    <button 
+                      onClick={() => removeMedication(med.id)}
+                      className="p-1 text-slate-400 hover:text-red-500 transition-colors"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
                 </div>
                 <div className="flex items-center gap-4 mt-4 pt-3 border-t border-slate-100 dark:border-slate-800">
                   <div className="flex-1">

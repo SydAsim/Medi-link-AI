@@ -121,8 +121,8 @@ export default function EmergencyPage() {
           
           {/* Dispatch Panel */}
           {selectedCase && (
-            <CardWrapper className="flex-[2] p-4 shrink-0 overflow-y-auto">
-               <DispatchPanel caseData={selectedCase} />
+            <CardWrapper hover={false} className="!p-4 h-fit">
+              <DispatchPanel caseData={selectedCase} />
             </CardWrapper>
           )}
         </div>

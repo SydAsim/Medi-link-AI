@@ -12,10 +12,12 @@ const OPENAI_API_KEY = process.env.NEXT_PUBLIC_OPENAI_API_KEY;
 const TRIAGE_PROMPT = `You are an emergency medical triage AI with pharmaceutical expertise.
 
 CRITICAL FORMAT: For EVERY medicine, use EXACTLY this format:
-Chemical Name (Brand Name) — Exact Dose in mg/ml — Route — Frequency — Stomach instruction — Adult dose — Purpose
+Chemical Name (Brand Name) — Exact Dose in mg/ml — Route — Stomach instruction — Adult dose — Purpose
 
 Example:
-"Amoxicillin + Clavulanic Acid (Augmentin) — 625mg oral tablet — Take 1 tablet every 8 hours — Take at start of meal — Complete full 7-day course — Adult dose — Broad-spectrum antibiotic to prevent wound infection"
+"Amoxicillin + Clavulanic Acid (Augmentin) — 625mg oral tablet — Take at start of meal — Complete full 7-day course — Adult dose — Broad-spectrum antibiotic to prevent wound infection"
+
+NEVER suggest a specific frequency or time (e.g. 'take at 5pm'). The doctor will decide the schedule.
 
 NEVER return vague medicines without full dosage details.
 
@@ -47,9 +49,9 @@ const FALLBACKS: Record<string, AIAnalysis> = {
   wound: {
     possibleConditions: ["Open wound/Laceration", "Infection risk"],
     recommendedActions: [
-      "Diclofenac Sodium (Voltaren) — 50mg oral tablet — every 8 hrs for 3-5 days — after food — Adult dose — Pain & inflammation",
-      "Amoxicillin + Clavulanic Acid (Augmentin) — 625mg oral tablet — every 8 hrs for 7 days — start of meal — Adult dose — Prevent wound infection",
-      "Povidone-Iodine (Betadine) — 10% topical solution — apply 2-3x daily — external only — Adult dose — Antiseptic wound cleaning",
+      "Diclofenac Sodium (Voltaren) — 50mg oral tablet — after food — Adult dose — Pain & inflammation",
+      "Amoxicillin + Clavulanic Acid (Augmentin) — 625mg oral tablet — start of meal — Adult dose — Prevent wound infection",
+      "Povidone-Iodine (Betadine) — 10% topical solution — external only — Adult dose — Antiseptic wound cleaning",
       "Apply direct pressure with clean cloth to control bleeding",
       "Tetanus Toxoid vaccine if not updated in 5 years",
     ],
@@ -60,9 +62,9 @@ const FALLBACKS: Record<string, AIAnalysis> = {
   cardiac: {
     possibleConditions: ["Acute Coronary Syndrome", "Angina Pectoris", "Myocardial Infarction risk"],
     recommendedActions: [
-      "Aspirin (Disprin) — 300mg chewable tablet — CHEW immediately — can take on empty stomach — Single loading dose — Antiplatelet to prevent clot",
-      "Nitroglycerin (Nitrostat) — 0.4mg sublingual tablet — under tongue, repeat every 5 min up to 3 doses — sublingual only — Adult dose — Vasodilator for chest pain",
-      "Clopidogrel (Plavix) — 300mg loading dose — 4x75mg tablets once — with or without food — Single loading dose — Antiplatelet for acute coronary",
+      "Aspirin (Disprin) — 300mg chewable tablet — can take on empty stomach — Single loading dose — Antiplatelet to prevent clot",
+      "Nitroglycerin (Nitrostat) — 0.4mg sublingual tablet — sublingual only — Adult dose — Vasodilator for chest pain",
+      "Clopidogrel (Plavix) — 300mg loading dose — with or without food — Single loading dose — Antiplatelet for acute coronary",
       "Call emergency services immediately — do NOT drive",
       "Sit upright, loosen tight clothing, stay calm",
     ],
@@ -73,9 +75,9 @@ const FALLBACKS: Record<string, AIAnalysis> = {
   breathing: {
     possibleConditions: ["Acute Asthma Exacerbation", "Bronchospasm", "Respiratory Distress"],
     recommendedActions: [
-      "Salbutamol (Ventolin) — 100mcg/puff MDI — 4-8 puffs via spacer every 20 min for 1 hr — inhaled — Adult dose — Rapid bronchodilator",
-      "Prednisolone (Deltacortril) — 40mg oral tablet — once daily for 5 days — after breakfast — Adult dose — Reduce airway inflammation",
-      "Ipratropium Bromide (Atrovent) — 20mcg/puff MDI — 4 puffs every 4-6 hrs — inhaled — Adult dose — Anticholinergic bronchodilator",
+      "Salbutamol (Ventolin) — 100mcg/puff MDI — inhaled — Adult dose — Rapid bronchodilator",
+      "Prednisolone (Deltacortril) — 40mg oral tablet — after breakfast — Adult dose — Reduce airway inflammation",
+      "Ipratropium Bromide (Atrovent) — 20mcg/puff MDI — inhaled — Adult dose — Anticholinergic bronchodilator",
       "Sit patient upright, lean slightly forward",
       "Monitor SpO2 — if <92%, escalate to emergency immediately",
     ],
@@ -86,9 +88,9 @@ const FALLBACKS: Record<string, AIAnalysis> = {
   fracture: {
     possibleConditions: ["Possible fracture", "Severe sprain", "Musculoskeletal trauma"],
     recommendedActions: [
-      "Tramadol (Tramal) — 50mg oral capsule — every 6 hrs as needed — with food — Max 400mg/day — Adult dose — Opioid analgesic for moderate-severe pain",
-      "Diclofenac Sodium (Voltaren) — 75mg IM injection — single intramuscular dose — N/A — Adult dose — Rapid NSAID for acute trauma",
-      "Omeprazole (Losec) — 20mg oral capsule — once daily before breakfast — empty stomach — Adult dose — Gastric protection with NSAIDs",
+      "Tramadol (Tramal) — 50mg oral capsule — with food — Max 400mg/day — Adult dose — Opioid analgesic for moderate-severe pain",
+      "Diclofenac Sodium (Voltaren) — 75mg IM injection — N/A — Adult dose — Rapid NSAID for acute trauma",
+      "Omeprazole (Losec) — 20mg oral capsule — empty stomach — Adult dose — Gastric protection with NSAIDs",
       "Immobilize limb — do NOT attempt to realign",
       "Apply ice wrapped in cloth for 20 min every hour",
     ],
@@ -99,9 +101,9 @@ const FALLBACKS: Record<string, AIAnalysis> = {
   fever: {
     possibleConditions: ["Viral fever", "Upper respiratory infection", "Influenza"],
     recommendedActions: [
-      "Paracetamol (Panadol) — 500mg oral tablet — 1-2 tablets every 6 hrs — with or without food — Max 4g/day — Adult dose — Antipyretic and analgesic",
-      "Cetirizine (Zyrtec) — 10mg oral tablet — once at bedtime — with or without food — Adult dose — Antihistamine for rhinitis/congestion",
-      "ORS (Oral Rehydration Salt) — 1 sachet in 1L water — sip throughout day — oral — Adult dose — Prevent dehydration",
+      "Paracetamol (Panadol) — 500mg oral tablet — with or without food — Max 4g/day — Adult dose — Antipyretic and analgesic",
+      "Cetirizine (Zyrtec) — 10mg oral tablet — with or without food — Adult dose — Antihistamine for rhinitis/congestion",
+      "ORS (Oral Rehydration Salt) — 1 sachet in 1L water — oral — Adult dose — Prevent dehydration",
       "Rest and adequate fluid intake (2-3 liters/day)",
       "Seek medical attention if fever >39.5°C or persists >3 days",
     ],
@@ -112,9 +114,9 @@ const FALLBACKS: Record<string, AIAnalysis> = {
   headache: {
     possibleConditions: ["Tension headache", "Migraine", "Sinusitis"],
     recommendedActions: [
-      "Ibuprofen (Brufen) — 400mg oral tablet — every 8 hrs with food — after meal — Max 1200mg/day — Adult dose — NSAID for headache pain",
-      "Sumatriptan (Imigran) — 50mg oral tablet — at migraine onset, repeat after 2 hrs if needed — with or without food — Max 200mg/day — Adult dose — 5-HT1 agonist for migraine",
-      "Domperidone (Motilium) — 10mg oral tablet — 30 min before Sumatriptan — before meals — Adult dose — Anti-emetic for nausea",
+      "Ibuprofen (Brufen) — 400mg oral tablet — after meal — Max 1200mg/day — Adult dose — NSAID for headache pain",
+      "Sumatriptan (Imigran) — 50mg oral tablet — with or without food — Max 200mg/day — Adult dose — 5-HT1 agonist for migraine",
+      "Domperidone (Motilium) — 10mg oral tablet — before meals — Adult dose — Anti-emetic for nausea",
       "Rest in dark quiet room",
       "Cold compress on forehead",
     ],
@@ -125,10 +127,10 @@ const FALLBACKS: Record<string, AIAnalysis> = {
   stomach: {
     possibleConditions: ["Gastroenteritis", "Food poisoning", "Gastritis"],
     recommendedActions: [
-      "ORS (Oral Rehydration Salt) — 1 sachet in 1L water — sip frequently — oral — Adult dose — Primary treatment for dehydration",
-      "Ondansetron (Zofran) — 4mg sublingual tablet — every 8 hrs as needed — dissolve under tongue — Adult dose — Anti-emetic for vomiting",
-      "Loperamide (Imodium) — 2mg capsule — 2 initially then 1 per loose stool — oral — Max 8/day — Adult dose — Anti-diarrheal (avoid if bloody stool)",
-      "Omeprazole (Losec) — 20mg capsule — once before breakfast — empty stomach — Adult dose — Acid suppression for gastritis",
+      "ORS (Oral Rehydration Salt) — 1 sachet in 1L water — oral — Adult dose — Primary treatment for dehydration",
+      "Ondansetron (Zofran) — 4mg sublingual tablet — dissolve under tongue — Adult dose — Anti-emetic for vomiting",
+      "Loperamide (Imodium) — 2mg capsule — oral — Max 8/day — Adult dose — Anti-diarrheal (avoid if bloody stool)",
+      "Omeprazole (Losec) — 20mg capsule — empty stomach — Adult dose — Acid suppression for gastritis",
       "BRAT diet for 24-48 hours (Bananas, Rice, Applesauce, Toast)",
     ],
     triageLevel: "medium", confidence: 0.7,
@@ -138,9 +140,9 @@ const FALLBACKS: Record<string, AIAnalysis> = {
   burns: {
     possibleConditions: ["Thermal burn", "Second-degree burn", "Burn infection risk"],
     recommendedActions: [
-      "Silver Sulfadiazine (Silvadene) — 1% topical cream — thin layer 1-2x daily — cover with sterile gauze — external only — Adult dose — Antimicrobial burn wound treatment",
-      "Ibuprofen (Brufen) — 400mg oral tablet — every 8 hrs with food — after meal — Adult dose — NSAID for burn pain",
-      "Cefalexin (Keflex) — 500mg oral capsule — every 6 hrs for 7 days — with food — Adult dose — Antibiotic for burn infection prevention",
+      "Silver Sulfadiazine (Silvadene) — 1% topical cream — cover with sterile gauze — external only — Adult dose — Antimicrobial burn wound treatment",
+      "Ibuprofen (Brufen) — 400mg oral tablet — after meal — Adult dose — NSAID for burn pain",
+      "Cefalexin (Keflex) — 500mg oral capsule — with food — Adult dose — Antibiotic for burn infection prevention",
       "Cool burn under running water for 20 minutes — NOT ice",
       "Do NOT apply butter, toothpaste, or home remedies",
     ],
@@ -151,9 +153,9 @@ const FALLBACKS: Record<string, AIAnalysis> = {
   allergy: {
     possibleConditions: ["Allergic reaction", "Urticaria", "Anaphylaxis risk"],
     recommendedActions: [
-      "Cetirizine (Zyrtec) — 10mg oral tablet — immediately then once daily — with or without food — Adult dose — Antihistamine for allergic reaction",
-      "Prednisolone (Deltacortril) — 30mg oral tablet — once daily for 3-5 days — after breakfast — Adult dose — Corticosteroid for moderate-severe reaction",
-      "Epinephrine (EpiPen) — 0.3mg IM auto-injector — outer thigh if anaphylaxis signs — through clothing if needed — repeat after 5 min — Adult dose — LIFE-SAVING for anaphylaxis",
+      "Cetirizine (Zyrtec) — 10mg oral tablet — with or without food — Adult dose — Antihistamine for allergic reaction",
+      "Prednisolone (Deltacortril) — 30mg oral tablet — after breakfast — Adult dose — Corticosteroid for moderate-severe reaction",
+      "Epinephrine (EpiPen) — 0.3mg IM auto-injector — through clothing if needed — Adult dose — LIFE-SAVING for anaphylaxis",
       "Monitor for anaphylaxis: throat swelling, breathing difficulty, rapid pulse",
       "Remove allergen exposure if identified",
     ],
@@ -164,9 +166,9 @@ const FALLBACKS: Record<string, AIAnalysis> = {
   general: {
     possibleConditions: ["Undetermined condition", "Requires clinical evaluation"],
     recommendedActions: [
-      "Paracetamol (Panadol) — 500mg oral tablet — 1-2 tablets every 6 hrs as needed — with or without food — Max 4g/day — Adult dose — General analgesic/antipyretic",
-      "Ibuprofen (Brufen) — 400mg oral tablet — every 8 hrs if pain/inflammation — after food — Max 1200mg/day — Adult dose — NSAID for pain and inflammation",
-      "ORS (Oral Rehydration Salt) — 1 sachet in 1L water — sip throughout day — oral — Adult dose — Maintain hydration",
+      "Paracetamol (Panadol) — 500mg oral tablet — with or without food — Max 4g/day — Adult dose — General analgesic/antipyretic",
+      "Ibuprofen (Brufen) — 400mg oral tablet — after food — Max 1200mg/day — Adult dose — NSAID for pain and inflammation",
+      "ORS (Oral Rehydration Salt) — 1 sachet in 1L water — oral — Adult dose — Maintain hydration",
       "Monitor symptoms closely",
       "Seek medical evaluation within 24 hours",
     ],

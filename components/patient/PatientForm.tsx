@@ -19,6 +19,7 @@ import { ImageUploader } from "./ImageUploader";
 import { createCase, uploadCaseImage } from "@/services/caseService";
 import { analyzeSymptoms } from "@/services/aiService";
 import { getPatientProfile } from "@/services/profileService";
+import { detectCrisis } from "@/services/ciroService";
 import type { Language, Severity, PatientProfile } from "@/types";
 
 interface PatientFormProps {
@@ -321,29 +322,35 @@ export function PatientForm({ onCaseSubmitted }: PatientFormProps) {
         patientPhone: phone.trim(),
         language,
         issueText: issueTextRef.current.trim(),
-        ...(imageUrl ? { imageUrl } : {}),
         latitude,
         longitude,
-        accuracy: accuracy || 0,
-        address: address || undefined,
-        nearbyLandmarks: nearbyLandmarks.length > 0 ? nearbyLandmarks : undefined,
+        accuracy: accuracy ?? 0,
         severity: aiResult.triageLevel,
         aiSummary: aiResult.summary,
         aiSuggestions: aiResult.recommendedActions,
         situationalSuggestions: aiResult.situationalSuggestions || [],
         emergencyRequired: aiResult.requiresImmediate,
         status: "pending",
+        safetyAlerts: aiResult.safetyWarnings || [],
+        // Optional fields (only add if they have values)
+        ...(imageUrl ? { imageUrl } : {}),
+        ...(address ? { address } : {}),
+        ...(nearbyLandmarks.length > 0 ? { nearbyLandmarks } : {}),
         ...(profile ? {
           medicalHistorySnapshot: {
             allergies: profile.allergies || [],
             conditions: profile.chronicConditions || [],
           }
         } : {}),
-        safetyAlerts: aiResult.safetyWarnings || [],
       });
 
       setSubmitted(true);
       onCaseSubmitted(caseId);
+
+      // Trigger CIRO Autonomous Intelligence loop
+      if (latitude && longitude) {
+        detectCrisis(caseId, latitude, longitude);
+      }
 
       // Reset form after brief delay
       setTimeout(() => {

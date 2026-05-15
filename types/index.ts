@@ -6,6 +6,8 @@ export type Severity = "critical" | "high" | "medium" | "low";
 export type CaseStatus = "pending" | "assigned" | "in-progress" | "dispatched" | "arrived" | "resolved" | "completed" | "closed";
 export type UserRole = "patient" | "doctor" | "emergency";
 export type Language = "english" | "urdu" | "pashto";
+export type CrisisType = "flood" | "fire" | "accident" | "outage" | "disease" | "protest" | "heatwave" | "unknown";
+
 
 export interface GeoLocation {
   latitude: number;
@@ -30,6 +32,7 @@ export interface Medication {
 export interface PatientProfile {
   phone: string;
   name?: string;
+  email?: string;
   allergies: string[];
   chronicConditions: string[];
   bloodGroup?: string;
@@ -108,4 +111,51 @@ export interface NavItem {
   icon: string;
   role: UserRole;
   description?: string;
+}
+
+// ============================================
+// CIRO Intelligence Types
+// ============================================
+
+export interface IntelligenceLog {
+  id: string;
+  caseId?: string;
+  crisisId?: string;
+  agentName: "Orchestrator" | "TriageAgent" | "LogisticsAgent" | "IntelAgent" | "StrategistAgent";
+  thought: string;
+  action?: string;
+  confidence?: number;
+  timestamp: number;
+}
+
+export interface CrisisEvent {
+  id: string;
+  type: CrisisType;
+  location: {
+    lat: number;
+    lng: number;
+    address: string;
+    radius: number; // affected radius in meters
+  };
+  severity: Severity;
+  confidence: number;
+  description: string;
+  signals: {
+    caseIds: string[];
+    socialCount: number;
+    sensorAlerts: string[];
+  };
+  status: "active" | "resolved" | "false-alarm";
+  createdAt: number;
+  updatedAt: number;
+}
+export interface ScheduledTask {
+  id: string;
+  type: "medication_reminder" | "emergency_followup";
+  targetPhone: string;
+  targetEmail?: string;
+  data: any; // e.g., { medicine: "Panadol", dosage: "500mg" }
+  scheduledFor: number; // Timestamp
+  status: "pending" | "executed" | "cancelled" | "failed";
+  createdAt: number;
 }

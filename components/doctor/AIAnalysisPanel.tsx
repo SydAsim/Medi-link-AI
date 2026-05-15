@@ -2,12 +2,13 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Brain, Pill, AlertTriangle, Activity, ChevronDown, ChevronUp, Sparkles, Edit2, CheckCircle, Loader2, MapPin } from "lucide-react";
+import { Brain, Pill, AlertTriangle, Activity, ChevronDown, ChevronUp, Sparkles, Edit2, CheckCircle, Loader2, MapPin, Trash2, Plus } from "lucide-react";
 import { SeverityBadge } from "@/components/common/SeverityBadge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { updateCase } from "@/services/caseService";
 import { addPrescriptionToHistory } from "@/services/profileService";
+import { scheduleMedicineReminders } from "@/services/ciroService";
 import type { PatientCase, Medication } from "@/types";
 
 interface AIAnalysisPanelProps {
@@ -26,51 +27,94 @@ function parseMedicine(med: string) {
 export function AIAnalysisPanel({ caseData }: AIAnalysisPanelProps) {
   const [medsExpanded, setMedsExpanded] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
-  const [editedMeds, setEditedMeds] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+  const [protocolApproved, setProtocolApproved] = useState(caseData?.protocolApproved || false);
+
+  // Structured medicine state
+  const [structuredMeds, setStructuredMeds] = useState<{
+    name: string;
+    dosage: string;
+    frequency: string;
+    purpose: string;
+    original: string;
+  }[]>([]);
 
   // Sync edited meds when entering edit mode
   const startEditing = (medicines: string[]) => {
-    setEditedMeds([...medicines]);
+    const parsed = medicines.map(m => {
+      const parts = m.split(" — ").map(p => p.trim());
+      return {
+        name: parts[0] || m,
+        dosage: parts[1] || "",
+        frequency: "", // AI no longer suggests this, doctor must decide
+        purpose: parts[parts.length - 1] || "",
+        original: m
+      };
+    });
+    setStructuredMeds(parsed);
     setIsEditing(true);
   };
 
-  const handleSaveMeds = async (otherActions: string[]) => {
-    if (!caseData) return;
+  const handleApproveProtocol = async (otherActions: string[]) => {
+    if (!caseData || structuredMeds.length === 0) return;
     setSaving(true);
     try {
-      const updatedSuggestions = [...otherActions, ...editedMeds.filter(m => m.trim() !== "")];
+      // Re-construct the AI suggestions with the doctor's frequency
+      const finalizedMeds = structuredMeds
+        .filter(m => m.name.trim() !== "")
+        .map(m => 
+          `${m.name} — ${m.dosage || 'As prescribed'} — ${m.frequency || 'As directed'} — ${m.purpose || 'Therapeutic'}`
+        );
+      
+      const updatedSuggestions = [...otherActions, ...finalizedMeds];
+      
       await updateCase(caseData.id, { 
         aiSuggestions: updatedSuggestions,
         protocolApproved: true 
       });
       
       // Save to Patient Profile History
-      const medList = editedMeds.filter(m => m.trim() !== "");
-      for (const m of medList) {
-        const p = parseMedicine(m);
-        if (p) {
-          // Attempt to extract dose and frequency from details
-          const dosage = p.details[0] || "As prescribed";
-          const frequency = p.details[2] || "Once daily";
-          
-          await addPrescriptionToHistory(caseData.patientPhone, {
-            name: p.name,
-            dosage: dosage,
-            frequency: frequency,
-            remainingDoses: 30, // Default to 30 doses
-            totalDoses: 30,
-            prescribedBy: "Dr. Physician (MediLink)",
+      for (const m of structuredMeds.filter(m => m.name.trim() !== "")) {
+        await addPrescriptionToHistory(caseData.patientPhone, {
+          name: m.name,
+          dosage: m.dosage || "As prescribed",
+          frequency: m.frequency || "As directed",
+          remainingDoses: 30,
+          totalDoses: 30,
+          prescribedBy: "Dr. Physician (MediLink)",
+        });
+
+        // Trigger the AI Continuity Agent to schedule reminders
+        if (m.frequency) {
+          await scheduleMedicineReminders(caseData.patientPhone, {
+            name: m.name,
+            dosage: m.dosage || "As prescribed",
+            frequency: m.frequency,
+            purpose: m.purpose
           });
         }
       }
 
+      setProtocolApproved(true);
       setIsEditing(false);
     } catch (e) {
-      console.error("Failed to save medicines", e);
+      console.error("Failed to approve protocol", e);
     } finally {
       setSaving(false);
     }
+  };
+
+  const addNewMed = () => {
+    setStructuredMeds([
+      ...structuredMeds,
+      { name: "", dosage: "", frequency: "", purpose: "", original: "" }
+    ]);
+  };
+
+  const removeMed = (index: number) => {
+    const newMeds = [...structuredMeds];
+    newMeds.splice(index, 1);
+    setStructuredMeds(newMeds);
   };
 
   if (!caseData) {
@@ -84,8 +128,9 @@ export function AIAnalysisPanel({ caseData }: AIAnalysisPanelProps) {
   }
 
   const actions = caseData.aiSuggestions || [];
-  const medicines = actions.filter((a) => a.includes("—"));
-  const otherActions = actions.filter((a) => !a.includes("—"));
+  // Strictly filter out any empty or malformed suggestions
+  const medicines = actions.filter((a) => a && a.includes("—") && a.trim() !== "");
+  const otherActions = actions.filter((a) => a && !a.includes("—") && a.trim() !== "");
 
   return (
     <motion.div
@@ -173,40 +218,118 @@ export function AIAnalysisPanel({ caseData }: AIAnalysisPanelProps) {
             </button>
             
             {!isEditing && caseData.status !== "closed" && (
-              <button 
-                onClick={() => startEditing(medicines)}
-                className="text-[10px] flex items-center gap-1 text-purple-400 hover:text-purple-300 transition-colors"
-              >
-                <Edit2 size={10} /> Edit & Approve
-              </button>
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={() => startEditing(medicines)}
+                  className="text-[10px] px-2 py-1 rounded-md bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 transition-all flex items-center gap-1"
+                >
+                  <Edit2 size={10} /> {caseData.protocolApproved ? "Adjust Protocol" : "Edit Medicine"}
+                </button>
+                {!caseData.protocolApproved && structuredMeds.length > 0 && (
+                  <button 
+                    onClick={() => handleApproveProtocol(otherActions)}
+                    className="text-[10px] px-2 py-1 rounded-md bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-all flex items-center gap-1"
+                  >
+                    <CheckCircle size={10} /> Approve Protocol
+                  </button>
+                )}
+              </div>
+            )}
+            {caseData.protocolApproved && !isEditing && (
+              <div className="flex items-center gap-1 text-[10px] text-emerald-500 font-bold ml-2">
+                <CheckCircle size={10} /> Protocol Active
+              </div>
             )}
           </div>
 
           {medsExpanded && (
             isEditing ? (
-              <div className="space-y-3 mt-2">
-                {editedMeds.map((med, i) => (
-                  <textarea
-                    key={i}
-                    value={med}
-                    onChange={(e) => {
-                      const newMeds = [...editedMeds];
-                      newMeds[i] = e.target.value;
-                      setEditedMeds(newMeds);
-                    }}
-                    className="w-full text-xs p-2.5 rounded-lg bg-slate-100 dark:bg-slate-800/80 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:border-purple-500/50 resize-y"
-                    rows={3}
-                  />
+              <div className="space-y-4 mt-2">
+                {structuredMeds.map((med, i) => (
+                  <div key={i} className="p-3 rounded-lg bg-slate-100 dark:bg-slate-800/80 border border-slate-300 dark:border-slate-700 space-y-3 relative group">
+                    <button 
+                      onClick={() => removeMed(i)}
+                      className="absolute top-2 right-2 p-1 text-slate-500 hover:text-red-500 transition-colors"
+                      title="Remove medicine"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                    
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-[9px] font-bold text-slate-500 uppercase block mb-1">Medicine Name</label>
+                        <input
+                          value={med.name}
+                          onChange={(e) => {
+                            const newMeds = [...structuredMeds];
+                            newMeds[i].name = e.target.value;
+                            setStructuredMeds(newMeds);
+                          }}
+                          placeholder="e.g. Panadol"
+                          className="w-full text-xs p-2 rounded-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:border-purple-500/50"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[9px] font-bold text-slate-500 uppercase block mb-1">Dosage</label>
+                        <input
+                          value={med.dosage}
+                          onChange={(e) => {
+                            const newMeds = [...structuredMeds];
+                            newMeds[i].dosage = e.target.value;
+                            setStructuredMeds(newMeds);
+                          }}
+                          placeholder="e.g. 500mg"
+                          className="w-full text-xs p-2 rounded-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:border-purple-500/50"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-[9px] font-bold text-slate-500 uppercase block mb-1">Prescription Schedule (Time/Frequency)</label>
+                      <input
+                        value={med.frequency}
+                        onChange={(e) => {
+                          const newMeds = [...structuredMeds];
+                          newMeds[i].frequency = e.target.value;
+                          setStructuredMeds(newMeds);
+                        }}
+                        placeholder="e.g. Every 8 hours after meals"
+                        className="w-full text-xs p-2 rounded-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:border-purple-500/50 shadow-sm"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[9px] font-bold text-slate-500 uppercase block mb-1">Purpose/Notes</label>
+                      <input
+                        value={med.purpose}
+                        onChange={(e) => {
+                          const newMeds = [...structuredMeds];
+                          newMeds[i].purpose = e.target.value;
+                          setStructuredMeds(newMeds);
+                        }}
+                        placeholder="e.g. Pain management"
+                        className="w-full text-[11px] p-2 rounded-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none focus:border-purple-500/50"
+                      />
+                    </div>
+                  </div>
                 ))}
-                <div className="flex items-center gap-2 pt-1">
+
+                <button
+                  onClick={addNewMed}
+                  className="w-full py-2 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-lg text-[10px] text-slate-500 hover:text-purple-400 hover:border-purple-400/30 transition-all flex items-center justify-center gap-2"
+                >
+                  <Plus size={14} /> Add Additional Medicine
+                </button>
+
+                <div className="flex items-center gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
                   <Button 
                     size="sm" 
-                    onClick={() => handleSaveMeds(otherActions)} 
-                    disabled={saving} 
-                    className="h-8 bg-purple-600 hover:bg-purple-700 text-white text-xs gap-1.5"
+                    onClick={() => handleApproveProtocol(otherActions)} 
+                    disabled={saving || structuredMeds.some(m => !m.name || !m.frequency)} 
+                    className="h-8 bg-purple-600 hover:bg-purple-700 text-white text-xs gap-1.5 px-4"
                   >
                     {saving ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle size={12} />}
-                    {saving ? "Saving..." : "Approve Protocol"}
+                    {saving ? "Updating..." : (caseData.protocolApproved ? "Update & Re-approve" : "Finalize & Approve Protocol")}
                   </Button>
                   <Button 
                     size="sm" 
@@ -217,6 +340,11 @@ export function AIAnalysisPanel({ caseData }: AIAnalysisPanelProps) {
                     Cancel
                   </Button>
                 </div>
+                {structuredMeds.some(m => !m.frequency && m.name) && (
+                  <p className="text-[9px] text-amber-500 flex items-center gap-1">
+                    <AlertTriangle size={10} /> Schedule is required for all active medications.
+                  </p>
+                )}
               </div>
             ) : (
               <div className="space-y-2 mt-2">

@@ -14,9 +14,11 @@ import {
   FileText,
   Sparkles,
   Truck,
+  Trash2,
+  X as CloseIcon,
 } from "lucide-react";
 import { cn, getSeverityColor, getRelativeTime } from "@/lib/utils";
-import { subscribeToCasesByPhone } from "@/services/caseService";
+import { subscribeToCasesByPhone, deleteCase } from "@/services/caseService";
 import { sendMessage, subscribeToChatMessages } from "@/services/chatService";
 import { SituationalAdvice } from "@/components/patient/SituationalAdvice";
 import type { PatientCase, ChatMessage } from "@/types";
@@ -130,41 +132,59 @@ function CaseCard({
       transition={{ delay: index * 0.05 }}
       className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-800/20 overflow-hidden"
     >
-      {/* Header — clickable */}
-      <button
-        type="button"
-        onClick={onToggle}
-        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-100 dark:bg-slate-800/30 transition-colors text-left"
-      >
-        {/* Severity dot */}
-        <div
-          className={cn(
-            "h-2.5 w-2.5 rounded-full flex-shrink-0",
-            caseData.severity === "critical" || caseData.severity === "high"
-              ? "bg-red-500"
-              : caseData.severity === "medium"
-              ? "bg-amber-500"
-              : "bg-emerald-500"
-          )}
-        />
+      <div className="relative group">
+        {/* Header — clickable */}
+        <button
+          type="button"
+          onClick={onToggle}
+          className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-100 dark:bg-slate-800/30 transition-colors text-left"
+        >
+          {/* Severity dot */}
+          <div
+            className={cn(
+              "h-2.5 w-2.5 rounded-full flex-shrink-0",
+              caseData.severity === "critical" || caseData.severity === "high"
+                ? "bg-red-500"
+                : caseData.severity === "medium"
+                ? "bg-amber-500"
+                : "bg-emerald-500"
+            )}
+          />
 
-        <div className="flex-1 min-w-0">
-          <p className="text-sm text-slate-800 dark:text-slate-200 truncate">{caseData.issueText}</p>
-          <div className="flex items-center gap-2 mt-1">
-            <span className="text-[10px] text-slate-500">
-              {getRelativeTime(caseData.createdAt)}
-            </span>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm text-slate-800 dark:text-slate-200 truncate">{caseData.issueText}</p>
+            <div className="flex items-center gap-2 mt-1">
+              <span className="text-[10px] text-slate-500">
+                {getRelativeTime(caseData.createdAt)}
+              </span>
+            </div>
           </div>
-        </div>
 
+          {/* Expand icon */}
+          <div className="flex items-center gap-2 pr-8"> {/* Added padding for delete button */}
+            {expanded ? (
+              <ChevronUp size={14} className="text-slate-500" />
+            ) : (
+              <ChevronDown size={14} className="text-slate-500" />
+            )}
+          </div>
+        </button>
 
-        {/* Expand icon */}
-        {expanded ? (
-          <ChevronUp size={14} className="text-slate-500" />
-        ) : (
-          <ChevronDown size={14} className="text-slate-500" />
-        )}
-      </button>
+        {/* Delete button — Absolute positioned to avoid nesting */}
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            if (confirm("Are you sure you want to delete this case record?")) {
+              deleteCase(caseData.id);
+            }
+          }}
+          className="absolute right-3 top-3 p-1.5 rounded-lg hover:bg-red-500/10 text-slate-500 hover:text-red-400 transition-all opacity-0 group-hover:opacity-100 z-10"
+          title="Delete record"
+        >
+          <Trash2 size={14} />
+        </button>
+      </div>
 
       {/* Expanded Content */}
       <AnimatePresence>

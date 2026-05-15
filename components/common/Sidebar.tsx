@@ -49,6 +49,17 @@ const navItems = [
     borderColor: "border-red-500/20",
     hoverBg: "hover:bg-red-500/15",
   },
+  {
+    title: "CIRO Intelligence",
+    href: "/ciro",
+    icon: Activity,
+    role: "ciro" as const,
+    description: "Multi-agent orchestration",
+    color: "text-purple-400",
+    bgColor: "bg-purple-500/10",
+    borderColor: "border-purple-500/20",
+    hoverBg: "hover:bg-purple-500/15",
+  },
 ];
 
 interface SidebarProps {

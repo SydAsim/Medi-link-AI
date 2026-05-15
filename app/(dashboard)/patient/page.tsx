@@ -13,12 +13,14 @@ import {
   MapPin,
   Sparkles,
   X,
+  Navigation,
 } from "lucide-react";
 import { PatientForm } from "@/components/patient/PatientForm";
 import { PatientHistory, CaseChat } from "@/components/patient/PatientHistory";
 import { MedicalHistoryTab } from "@/components/patient/MedicalHistoryTab";
 import { ActiveEmergencyAlert, ActiveCaseChat } from "@/components/patient/ActiveCasePanel";
 import { SituationalAdvice } from "@/components/patient/SituationalAdvice";
+import { LiveTrackingMap } from "@/components/patient/LiveTrackingMap";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { subscribeToCasesByPhone } from "@/services/caseService";
@@ -243,6 +245,15 @@ export default function PatientPage() {
                   <X size={16} />
                 </button>
                 <div className="space-y-3">
+                  {/* Uber-style Live Tracking — only if dispatched/en-route/arrived */}
+                  {(activeCase.status === "dispatched" || activeCase.status === "arrived" || activeCase.status === "in-progress") && (
+                    <LiveTrackingMap 
+                      patientLat={activeCase.latitude}
+                      patientLng={activeCase.longitude}
+                      status={activeCase.status}
+                    />
+                  )}
+                  
                   <SituationalAdvice caseData={activeCase} />
 
                   {/* AI Summary & Medicines — only if EXPLICITLY approved by doctor */}
