@@ -125,18 +125,21 @@ export async function detectCrisis(caseId: string, lat: number, lng: number) {
  */
 export async function scheduleMedicineReminders(
   phone: string, 
-  medDetails: { name: string; dosage: string; frequency: string; purpose?: string }
+  medDetails: { name: string; dosage: string; frequency: string; purpose?: string },
+  clientNow?: number
 ) {
+  const referenceTime = clientNow || Date.now();
+  
   // 1. Log the Agent's reasoning
   await addIntelligenceLog({
     agentName: "StrategistAgent",
-    thought: `Analyzing doctor's prescription for ${phone}. Medicine: ${medDetails.name}. Parsing schedule: "${medDetails.frequency}"`,
-    confidence: 1.0
+    thought: `Analyzing doctor's prescription for ${phone}. Medicine: ${medDetails.name}. Syncing with Patient Local Time.`,
+    confidence: 1.0,
+    action: "TIMEZONE_SYNC"
   });
 
   // 2. Extract Time from frequency string (e.g. "Take at 11 : 00 PM")
   let scheduledTime: number | null = null;
-  // Improved regex to handle spaces: "10 : 58 PM", "10:58PM", "10 :58pm" etc.
   const timeMatch = medDetails.frequency.match(/(\d{1,2})\s*:\s*(\d{2})\s*(AM|PM)/i);
   
   if (timeMatch) {
@@ -144,15 +147,14 @@ export async function scheduleMedicineReminders(
     const minutes = parseInt(timeMatch[2]);
     const ampm = timeMatch[3].toUpperCase();
     
-    const now = new Date();
-    const scheduledDate = new Date();
+    const scheduledDate = new Date(referenceTime);
     let finalHours = ampm === "PM" && hours < 12 ? hours + 12 : hours;
     if (ampm === "AM" && hours === 12) finalHours = 0;
     
     scheduledDate.setHours(finalHours, minutes, 0, 0);
     
     // If time already passed today, schedule for tomorrow
-    if (scheduledDate.getTime() < now.getTime()) {
+    if (scheduledDate.getTime() < referenceTime) {
       scheduledDate.setDate(scheduledDate.getDate() + 1);
     }
     scheduledTime = scheduledDate.getTime();
@@ -222,10 +224,10 @@ export async function executeScheduledTask(taskId: string) {
  * Subscribes to pending tasks
  */
 export function subscribeToScheduledTasks(callback: (tasks: ScheduledTask[]) => void) {
+  // Simplified query to avoid requiring composite indexes
   const q = query(
     collection(db, "scheduled_tasks"),
-    where("status", "==", "pending"),
-    orderBy("scheduledFor", "asc")
+    where("status", "==", "pending")
   );
 
   return onSnapshot(q, (snapshot) => {
@@ -233,7 +235,10 @@ export function subscribeToScheduledTasks(callback: (tasks: ScheduledTask[]) => 
       id: doc.id,
       ...doc.data()
     })) as ScheduledTask[];
-    callback(tasks);
+    
+    // Sort in memory instead of database level to avoid index errors
+    const sortedTasks = tasks.sort((a, b) => a.scheduledFor - b.scheduledFor);
+    callback(sortedTasks);
   });
 }
 

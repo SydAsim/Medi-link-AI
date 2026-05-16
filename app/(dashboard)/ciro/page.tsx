@@ -8,11 +8,13 @@ import {
   AlertCircle, 
   Wifi, 
   Zap,
+  Bell,
+  RefreshCw,
+  Search,
   Globe,
-  Database,
   Clock,
   ArrowRight,
-  Bell
+  Database
 } from "lucide-react";
 import { CardWrapper } from "@/components/common/CardWrapper";
 import { IntelligenceFeed } from "@/components/doctor/IntelligenceFeed";
@@ -23,7 +25,8 @@ import { subscribeToAllCases } from "@/services/caseService";
 import { 
   subscribeToScheduledTasks, 
   executeScheduledTask, 
-  addIntelligenceLog 
+  addIntelligenceLog,
+  scheduleMedicineReminders
 } from "@/services/ciroService";
 import { sendEmergencyReminder } from "@/services/notificationService";
 import type { PatientCase, ScheduledTask } from "@/types";
@@ -32,8 +35,12 @@ export default function CiroIntelligencePage() {
   const [cases, setCases] = useState<PatientCase[]>([]);
   const [selectedCase, setSelectedCase] = useState<PatientCase | null>(null);
   const [scheduledTasks, setScheduledTasks] = useState<ScheduledTask[]>([]);
+  const [mounted, setMounted] = useState(false);
+  const [pulse, setPulse] = useState(false);
+  const [lastScan, setLastScan] = useState<Date>(new Date());
 
   useEffect(() => {
+    setMounted(true);
     const unsubCases = subscribeToAllCases((data) => {
       setCases(data);
       if (data.length > 0 && !selectedCase) {
@@ -51,47 +58,45 @@ export default function CiroIntelligencePage() {
     };
   }, [selectedCase]);
 
-  // ─── Autonomous Task Dispatcher (The "Temporal Warden") ───
+  // ─── Surgical Temporal Warden (Direct Dispatch) ───
   useEffect(() => {
-    const interval = setInterval(() => {
-      const now = Date.now();
-      scheduledTasks.forEach(async (task) => {
-        if (task.status === "pending" && task.scheduledFor <= now) {
-          console.log(`🚀 CIRO: Executing scheduled task ${task.id} for ${task.data.name}`);
-          
-          // 1. Mark as executed to prevent double-firing
-          await executeScheduledTask(task.id);
-          
-          // 2. Dispatch reminder
-          const result = await sendEmergencyReminder(
-            task.targetPhone, 
-            task.targetEmail, 
-            task.data
-          );
+    // This loop only checks the clock against tasks ALREADY in memory (no DB search)
+    const interval = setInterval(async () => {
+      setPulse(true);
+      setLastScan(new Date());
+      setTimeout(() => setPulse(false), 500);
 
-          // 3. Log intelligence thought with detailed result
-          if (result.email?.success || result.whatsapp?.success) {
+      const now = Date.now();
+      
+      for (const task of scheduledTasks) {
+        if (task.status === "pending" && task.scheduledFor <= now) {
+          console.log(`🎯 CIRO Agent: Targeted time reached for ${task.data.name}. Dispatching now.`);
+          
+          try {
+            // 1. Immediately update local UI for zero-latency feel
+            setScheduledTasks(prev => prev.filter(t => t.id !== task.id));
+            
+            // 2. Execute the dispatch
+            await executeScheduledTask(task.id);
+            const result = await sendEmergencyReminder(task.targetPhone, task.targetEmail, task.data);
+
+            const status = (result.email?.success || result.whatsapp?.success) ? "SUCCESS" : "FAILED";
+            
             await addIntelligenceLog({
-              agentName: "Orchestrator",
-              thought: `TEMPORAL_TRIGGER: Scheduled time reached. Autonomous dispatch successful. [Email: ${result.email?.success ? 'OK' : 'FAIL'}, WA: ${result.whatsapp?.success ? 'OK' : 'FAIL'}]`,
+              agentName: "StrategistAgent",
+              thought: `SURGICAL_DISPATCH: Target time reached. Medicine [${task.data.name}] sent to ${task.targetPhone}.`,
               confidence: 1.0,
-              action: "TASK_EXECUTED"
+              action: status === "SUCCESS" ? "TASK_EXECUTED" : "NOTIFICATION_FAILED"
             });
-          } else {
-            const errorMsg = result.email?.error || result.whatsapp?.error || "Unknown Error";
-            await addIntelligenceLog({
-              agentName: "Orchestrator",
-              thought: `TEMPORAL_FAILURE: Task execution triggered but dispatch failed. Detail: ${errorMsg}`,
-              confidence: 1.0,
-              action: "NOTIFICATION_FAILED"
-            });
+          } catch (e) {
+            console.error("Surgical dispatch error:", e);
           }
         }
-      });
-    }, 10000); // Check every 10 seconds
+      }
+    }, 1000); // Check local memory every second for precision
 
     return () => clearInterval(interval);
-  }, [scheduledTasks]);
+  }, [scheduledTasks]); // Only re-run when the in-memory tasks change
 
   const handleForceDispatch = async (task: ScheduledTask) => {
     // 1. Mark as executed
@@ -139,8 +144,13 @@ export default function CiroIntelligencePage() {
 
         <div className="flex items-center gap-3">
           <div className="flex flex-col items-end">
-            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Global Status</span>
-            <span className="text-emerald-500 font-mono text-sm font-bold">STABLE // NO_LEAKS</span>
+            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest flex items-center gap-2">
+              <span className={cn("h-1.5 w-1.5 rounded-full bg-emerald-500", pulse && "animate-ping")} />
+              System Pulse
+            </span>
+            <span className="text-emerald-500 font-mono text-[10px] font-bold">
+              SCANNING_ACTIVE // {mounted ? lastScan.toLocaleTimeString() : "--:--:--"}
+            </span>
           </div>
           <div className="h-10 w-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center border border-slate-200 dark:border-slate-700">
             <Globe size={20} className="text-slate-400" />
@@ -257,9 +267,14 @@ export default function CiroIntelligencePage() {
                     <div className="absolute top-0 left-0 h-full w-1 bg-emerald-500" />
                     <div className="flex justify-between items-start mb-2">
                       <Badge className="bg-emerald-500/10 text-emerald-500 border-none text-[8px] h-4">QUEUED_REMINDER</Badge>
-                      <span className="text-[9px] font-mono text-emerald-400">
-                        {new Date(task.scheduledFor).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </span>
+                      <div className="text-right">
+                        <p className="text-[9px] font-mono text-emerald-400">
+                          {new Date(task.scheduledFor).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                        <p className="text-[7px] text-slate-500 font-bold uppercase">
+                          {new Date(task.scheduledFor).toDateString() === new Date().toDateString() ? "Today" : "Tomorrow"}
+                        </p>
+                      </div>
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="h-6 w-6 rounded-lg bg-emerald-500/10 flex items-center justify-center">

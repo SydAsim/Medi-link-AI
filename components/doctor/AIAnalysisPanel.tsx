@@ -91,7 +91,7 @@ export function AIAnalysisPanel({ caseData }: AIAnalysisPanelProps) {
             dosage: m.dosage || "As prescribed",
             frequency: m.frequency,
             purpose: m.purpose
-          });
+          }, Date.now()); // Pass current client timestamp for timezone-aware reasoning
         }
       }
 
