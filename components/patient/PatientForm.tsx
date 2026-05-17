@@ -342,6 +342,8 @@ export function PatientForm({ onCaseSubmitted }: PatientFormProps) {
             conditions: profile.chronicConditions || [],
           }
         } : {}),
+        isSpam: aiResult.summary.includes("SYSTEM_NOTICE"),
+        isSystemTest: issueTextRef.current.toLowerCase().includes("test") || aiResult.summary.includes("system test"),
       });
 
       setSubmitted(true);

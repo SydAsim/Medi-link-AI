@@ -73,6 +73,8 @@ export interface PatientCase {
     conditions: string[];
   };
   safetyAlerts?: string[]; // AI-generated warnings (e.g., "Allergic to Penicillin")
+  isSpam?: boolean;        // New: For non-medical/joke reports
+  isSystemTest?: boolean;  // New: For internal testing/demo cases
 }
 
 export interface AIAnalysis {

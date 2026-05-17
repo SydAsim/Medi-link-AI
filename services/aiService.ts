@@ -9,40 +9,45 @@ import type { AIAnalysis, Severity } from "@/types";
 const GEMINI_API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
 const OPENAI_API_KEY = process.env.NEXT_PUBLIC_OPENAI_API_KEY;
 
-const TRIAGE_PROMPT = `You are an emergency medical triage AI with pharmaceutical expertise.
+const TRIAGE_PROMPT = `You are a high-level Emergency Medical Triage Agent. Your goal is to provide pharmaceutical-grade analysis and life-saving situational advice.
 
-CRITICAL FORMAT: For EVERY medicine, use EXACTLY this format:
-Chemical Name (Brand Name) — Exact Dose in mg/ml — Route — Stomach instruction — Adult dose — Purpose
+--- ABUSE & JOKE DETECTION ---
+1. Evaluate if the patient is submitting a genuine medical emergency.
+2. If the report is clearly a joke, a test, or non-medical (e.g., "I'm bored", "Just testing", "My dog is sad"), you MUST:
+   - Set "triageLevel" to "low".
+   - Set "summary" to "SYSTEM_NOTICE: No medical emergency detected. This report appears to be non-critical or a system test."
+   - Set "confidence" to 1.0.
+   - Do NOT suggest any medicines.
 
-Example:
-"Amoxicillin + Clavulanic Acid (Augmentin) — 625mg oral tablet — Take at start of meal — Complete full 7-day course — Adult dose — Broad-spectrum antibiotic to prevent wound infection"
+--- VISUAL INTELLIGENCE (For Images) ---
+1. If an image is provided, analyze it for:
+   - WOUNDS: Check depth, border irregularity, and active bleeding.
+   - SKIN: Look for cyanosis (blue tint), pallor, or spreading rashes (cellulitis).
+   - TRAUMA: Look for obvious deformity or swelling.
+2. Incorporate visual findings directly into the "summary".
 
-NEVER suggest a specific frequency or time (e.g. 'take at 5pm'). The doctor will decide the schedule.
+--- PHARMACEUTICAL PRECISION ---
+- For EVERY medicine, use EXACTLY this format:
+  Chemical Name (Brand Name) — Dose in mg/ml — Route — Stomach instruction — Adult dose — Purpose
+- Example: "Amoxicillin (Augmentin) — 625mg oral tablet — Take at start of meal — Adult dose — Prevent infection"
+- NEVER suggest frequencies or schedules.
 
-NEVER return vague medicines without full dosage details.
-
-Respond ONLY with valid JSON, no markdown:
+Respond ONLY with valid JSON:
 {
   "possibleConditions": ["condition1"],
-  "recommendedActions": ["Medicine Name (Brand) — dose — route — frequency — stomach — adult — purpose"],
-  "situationalSuggestions": ["Immediate first aid / situational advice (e.g., 'Apply pressure', 'Sit upright')"],
-  "safetyWarnings": ["CRITICAL: Patient allergic to Penicillin. Do NOT use Augmentin."], 
+  "recommendedActions": ["Medicine (Brand) — dose — route — instruction — adult — purpose"],
+  "situationalSuggestions": ["1. Immediate step", "2. Second step"],
+  "safetyWarnings": ["Allergy warnings or contraindications"], 
   "triageLevel": "critical|high|medium|low",
   "confidence": 0.0-1.0,
-  "summary": "Clinical summary",
+  "summary": "Clinical summary including visual findings if applicable.",
   "requiresImmediate": true|false
 }
 
-SAFETY RULES:
-1. Compare recommendedActions against the provided [PATIENT HISTORY], which includes:
-   - Known Allergies & Chronic Conditions
-   - Previous Prescriptions/Medications
-   - Uploaded Medical Records (OCR text or summaries)
-2. If an allergy exists (e.g., Penicillin mentioned in history or previous records), flag it in safetyWarnings and suggest an alternative (e.g., Clarithromycin).
-3. Check for chronic conditions (e.g., Asthma) that might interact with recommended meds (e.g., Ibuprofen).
-4. If a patient is already taking a medication, ensure the new recommendation does not double-dose or cause a severe interaction.
-5. If no history is provided, assume no known allergies but advise caution in safetyWarnings.
-6. If the patient has uploaded a medical record, prioritize findings in that record for safety checks.`;
+--- SAFETY RULES ---
+1. Check [PATIENT HISTORY] for Allergies or Chronic Conditions.
+2. If an allergy is found, flag it in safetyWarnings and suggest an alternative.
+3. If no history is provided, warn "Assumed no allergies - verify before administration."`;
 
 // ─── Condition-Specific Fallbacks ────────────────────────────
 const FALLBACKS: Record<string, AIAnalysis> = {
@@ -164,22 +169,30 @@ const FALLBACKS: Record<string, AIAnalysis> = {
     requiresImmediate: true,
   },
   general: {
-    possibleConditions: ["Undetermined condition", "Requires clinical evaluation"],
+    possibleConditions: ["Inconclusive / Non-Medical"],
     recommendedActions: [
-      "Paracetamol (Panadol) — 500mg oral tablet — with or without food — Max 4g/day — Adult dose — General analgesic/antipyretic",
-      "Ibuprofen (Brufen) — 400mg oral tablet — after food — Max 1200mg/day — Adult dose — NSAID for pain and inflammation",
-      "ORS (Oral Rehydration Salt) — 1 sachet in 1L water — oral — Adult dose — Maintain hydration",
-      "Monitor symptoms closely",
-      "Seek medical evaluation within 24 hours",
+      "Provide more clinical details for a precise analysis",
+      "If this is a system test, please ignore this panel",
     ],
-    triageLevel: "medium", confidence: 0.4,
-    summary: "Symptoms require further evaluation. Basic management with Paracetamol and hydration. Monitor for deterioration. Professional medical assessment within 24 hours.",
+    triageLevel: "low", confidence: 0.1,
+    summary: "The system could not identify a clear medical emergency from the provided report. If you are experiencing symptoms, please elaborate. If this is a test, no further action is required.",
     requiresImmediate: false,
   },
+  test: {
+    possibleConditions: ["Non-Emergency / System Test"],
+    recommendedActions: ["No medical actions required for system tests"],
+    triageLevel: "low", confidence: 1.0,
+    summary: "SYSTEM_NOTICE: This report has been identified as a system test or non-medical query. AI Emergency Guidance is disabled for this case.",
+    requiresImmediate: false,
+  }
 };
 
 function matchFallback(text: string): AIAnalysis {
   const s = text.toLowerCase();
+  
+  // Detect jokes/tests early
+  if (s.match(/joke|kidding|test|bored|checking|dummy|hello/)) return FALLBACKS.test;
+  
   if (s.match(/cut|wound|bleed|lacerat|stab|slash/)) return FALLBACKS.wound;
   if (s.match(/chest|heart|cardiac|palpitat/)) return FALLBACKS.cardiac;
   if (s.match(/breath|asthma|wheez|lung|chok/)) return FALLBACKS.breathing;

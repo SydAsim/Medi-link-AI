@@ -26,6 +26,12 @@ export function DoctorCaseList({ onSelectCase, selectedId, filter }: DoctorCaseL
 
   // Client-side filtering
   const filtered = cases.filter((c) => {
+    // IRONCLAD SECURITY FILTER: Hide explicit spam OR any case with the "Inconclusive" summary signature
+    const isInconclusive = c.aiSummary?.includes("The system could not identify a clear medical emergency") || 
+                         c.aiSummary?.includes("SYSTEM_NOTICE");
+    
+    if (c.isSpam || isInconclusive) return false;
+
     if (filter === "all") return c.status !== "completed" && c.status !== "closed";
     if (filter === "critical") return c.severity === "critical" || c.severity === "high";
     if (filter === "pending") return c.status === "pending";

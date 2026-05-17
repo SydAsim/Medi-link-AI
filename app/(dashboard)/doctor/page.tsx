@@ -51,10 +51,14 @@ export default function DoctorPage() {
     return () => unsub();
   }, [selectedCase?.id]);
 
-  // Stats
-  const activeCases = allCases.filter((c) => c.status !== "completed" && c.status !== "closed");
-  const criticalCount = allCases.filter((c) => c.severity === "critical" || c.severity === "high").length;
-  const pendingCount = allCases.filter((c) => c.status === "pending").length;
+  // Stats — strictly ignore spam and inconclusive junk
+  const isJunk = (c: PatientCase) => c.isSpam || 
+    c.aiSummary?.includes("The system could not identify a clear medical emergency") || 
+    c.aiSummary?.includes("SYSTEM_NOTICE");
+
+  const activeCases = allCases.filter((c) => !isJunk(c) && c.status !== "completed" && c.status !== "closed");
+  const criticalCount = allCases.filter((c) => !isJunk(c) && (c.severity === "critical" || c.severity === "high")).length;
+  const pendingCount = allCases.filter((c) => !isJunk(c) && c.status === "pending").length;
 
   const handleStatusUpdate = async (status: CaseStatus) => {
     if (!selectedCase) return;
