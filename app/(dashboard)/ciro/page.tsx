@@ -17,8 +17,8 @@ import {
   Database
 } from "lucide-react";
 import { CardWrapper } from "@/components/common/CardWrapper";
-import { IntelligenceFeed } from "@/components/doctor/IntelligenceFeed";
 import { LiveMapView } from "@/components/emergency/LiveMapView";
+import { MultiAgentReasoning } from "@/components/ciro/MultiAgentReasoning";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { subscribeToAllCases } from "@/services/caseService";
@@ -28,6 +28,7 @@ import {
   addIntelligenceLog,
   scheduleMedicineReminders
 } from "@/services/ciroService";
+import { seedSocialSignalsIfEmpty } from "@/services/seedSocialSignals";
 import { sendEmergencyReminder } from "@/services/notificationService";
 import type { PatientCase, ScheduledTask } from "@/types";
 
@@ -41,6 +42,8 @@ export default function CiroIntelligencePage() {
 
   useEffect(() => {
     setMounted(true);
+    // Seed demo social signals for Intel Agent on first load
+    seedSocialSignalsIfEmpty();
     const unsubCases = subscribeToAllCases((data) => {
       setCases(data);
       if (data.length > 0 && !selectedCase) {
@@ -196,6 +199,10 @@ export default function CiroIntelligencePage() {
             <LiveMapView caseData={selectedCase} />
           </CardWrapper>
 
+        </div>
+
+        {/* Right Column: Agent Intelligence */}
+        <div className="lg:col-span-4 space-y-6">
           <CardWrapper title="Signal Analysis Feed" icon={<Activity size={18} className="text-blue-500" />}>
             <div className="space-y-3">
               {cases.slice(0, 3).map((c, i) => (
@@ -219,38 +226,6 @@ export default function CiroIntelligencePage() {
                   </Badge>
                 </div>
               ))}
-            </div>
-          </CardWrapper>
-        </div>
-
-        {/* Right Column: Agent Intelligence */}
-        <div className="lg:col-span-4 space-y-6">
-          <IntelligenceFeed />
-          
-          <CardWrapper title="Agentic Resources" icon={<Shield size={18} className="text-purple-500" />}>
-            <div className="space-y-4">
-              <div className="flex flex-col gap-2">
-                 <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest text-slate-500">
-                    <span>Orchestration Load</span>
-                    <span className="text-purple-500">42%</span>
-                 </div>
-                 <div className="h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                    <div className="h-full w-[42%] bg-purple-500 rounded-full" />
-                 </div>
-              </div>
- 
-              <div className="space-y-2">
-                 {[
-                   { name: "IntelAgent", status: "PROCESSING", color: "text-emerald-500" },
-                   { name: "LogisticsAgent", status: "OPTIMIZING", color: "text-blue-500" },
-                   { name: "StrategistAgent", status: "TEMPORAL_MONITOR", color: "text-purple-500" },
-                 ].map((agent, i) => (
-                   <div key={i} className="flex items-center justify-between text-[11px] font-mono p-2 rounded bg-slate-50 dark:bg-slate-800/30">
-                      <span className="text-slate-400">&gt; {agent.name}</span>
-                      <span className={cn("font-bold", agent.color)}>{agent.status}</span>
-                   </div>
-                 ))}
-              </div>
             </div>
           </CardWrapper>
 
@@ -303,6 +278,9 @@ export default function CiroIntelligencePage() {
           </CardWrapper>
         </div>
       </div>
+
+      {/* 4-Agent Reasoning Panel */}
+      <MultiAgentReasoning />
     </div>
   );
 }

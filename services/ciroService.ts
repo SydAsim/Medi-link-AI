@@ -9,7 +9,8 @@ import {
   doc,
   updateDoc,
   Timestamp,
-  serverTimestamp
+  serverTimestamp,
+  getDocs
 } from "firebase/firestore";
 import { sendEmergencyReminder } from "./notificationService";
 import { getPatientProfile } from "./profileService";
@@ -20,6 +21,33 @@ import type { IntelligenceLog, CrisisEvent, CrisisType, Severity, ScheduledTask 
  */
 export async function addIntelligenceLog(log: Omit<IntelligenceLog, "id" | "timestamp">) {
   try {
+    // Bulletproof deduplication: if this is a case-specific action, check if it already exists
+    if (log.caseId && log.action) {
+      const q = query(
+        collection(db, "intelligence_logs"),
+        where("caseId", "==", log.caseId),
+        where("action", "==", log.action)
+      );
+      const snap = await getDocs(q);
+      if (!snap.empty) {
+        console.log(`[CIRO Deduplicator] Skipped duplicate log: [${log.action}] for case ${log.caseId}`);
+        return snap.docs[0].id;
+      }
+    }
+    
+    // Also check for global/system tasks to avoid duplicates on quick clicks
+    if (!log.caseId && log.action) {
+      const q = query(
+        collection(db, "intelligence_logs"),
+        where("action", "==", log.action),
+        where("thought", "==", log.thought)
+      );
+      const snap = await getDocs(q);
+      if (!snap.empty) {
+        return snap.docs[0].id;
+      }
+    }
+
     const docRef = await addDoc(collection(db, "intelligence_logs"), {
       ...log,
       timestamp: Date.now(),
@@ -43,15 +71,13 @@ export function subscribeToIntelligenceLogs(
   const field = type === "case" ? "caseId" : "crisisId";
   const q = query(
     collection(db, "intelligence_logs"),
-    where(field, "==", targetId),
-    orderBy("timestamp", "asc")
+    where(field, "==", targetId)
   );
 
   return onSnapshot(q, (snapshot) => {
-    const logs = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    })) as IntelligenceLog[];
+    const logs = snapshot.docs
+      .map(doc => ({ id: doc.id, ...doc.data() }) as IntelligenceLog)
+      .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
     callback(logs);
   });
 }
@@ -72,52 +98,6 @@ export function subscribeToAllIntelligence(callback: (logs: IntelligenceLog[]) =
     })) as IntelligenceLog[];
     callback(logs);
   });
-}
-
-/**
- * MOCK: Simulates signal fusion and crisis detection
- * In a real app, this would be triggered by a Cloud Function or a background worker
- */
-export async function detectCrisis(caseId: string, lat: number, lng: number) {
-  // 1. Log the initiation of signal fusion
-  await addIntelligenceLog({
-    caseId,
-    agentName: "IntelAgent",
-    thought: "New emergency signal received. Initiating multi-source signal fusion...",
-    confidence: 1.0
-  });
-
-  // 2. Simulate checking other sources
-  setTimeout(async () => {
-    await addIntelligenceLog({
-      caseId,
-      agentName: "IntelAgent",
-      thought: "Checking social media feeds and weather sensors for Sector G-10...",
-      confidence: 0.9
-    });
-    
-    // Simulate finding a correlation
-    setTimeout(async () => {
-      await addIntelligenceLog({
-        caseId,
-        agentName: "IntelAgent",
-        thought: "ALERT: Found 12 related social media posts reporting 'Urban Flooding' in this radius. Correlating with weather alert: 'Heavy Rain'.",
-        confidence: 0.85,
-        action: "CLUSTER_DETECTED"
-      });
-      
-      await addIntelligenceLog({
-        caseId,
-        agentName: "Orchestrator",
-        thought: "Incident upgraded to 'Probable Urban Flood'. Transitioning from isolated case to Crisis Event orchestration.",
-        confidence: 0.9,
-        action: "CRISIS_UPGRADE"
-      });
-
-      // 3. Initiate logistics search
-      await findNearbyDoctors(lat, lng);
-    }, 2000);
-  }, 1500);
 }
 
 /**
@@ -240,38 +220,4 @@ export function subscribeToScheduledTasks(callback: (tasks: ScheduledTask[]) => 
     const sortedTasks = tasks.sort((a, b) => a.scheduledFor - b.scheduledFor);
     callback(sortedTasks);
   });
-}
-
-/**
- * Logistics Agent: Searches for nearby doctors and resources
- */
-export async function findNearbyDoctors(lat: number, lng: number) {
-  await addIntelligenceLog({
-    agentName: "LogisticsAgent",
-    thought: `Identifying patient coordinates: [${lat.toFixed(4)}, ${lng.toFixed(4)}]. Initiating search for nearest medical professionals...`,
-    confidence: 1.0
-  });
-
-  setTimeout(async () => {
-    // Mock doctor search result
-    const nearby = [
-      { name: "Dr. Ahmed", distance: "0.8km", special: "ER Specialist" },
-      { name: "Dr. Fatima", distance: "1.2km", special: "General Physician" }
-    ];
-
-    await addIntelligenceLog({
-      agentName: "LogisticsAgent",
-      thought: `Search complete. Found ${nearby.length} doctors within 2km radius.`,
-      confidence: 0.95
-    });
-
-    setTimeout(async () => {
-      await addIntelligenceLog({
-        agentName: "Orchestrator",
-        thought: `Alerting ${nearby[0].name} (${nearby[0].special}) regarding new high-severity case.`,
-        confidence: 0.9,
-        action: "DOCTOR_ALERTED"
-      });
-    }, 1500);
-  }, 2000);
 }

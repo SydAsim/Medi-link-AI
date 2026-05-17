@@ -304,35 +304,43 @@ export function CaseChat({ caseId, phone }: { caseId: string; phone: string }) {
         <MessageCircle size={12} className="text-slate-500" />
         <span className="text-[10px] font-medium text-slate-600 dark:text-slate-400">Chat with Medical Team</span>
         {messages.length > 0 && (
-          <span className="text-[10px] text-slate-600 ml-auto">{messages.length}</span>
+          <span className="text-[10px] text-slate-600 ml-auto">{messages.length} message{messages.length !== 1 ? "s" : ""}</span>
         )}
       </div>
 
       {/* Messages */}
-      <div className="max-h-40 overflow-y-auto p-2 space-y-1.5">
+      <div className="max-h-64 overflow-y-auto p-2 space-y-2">
         {messages.length === 0 ? (
-          <p className="text-[10px] text-slate-600 text-center py-3">
-            No messages yet. Send a message to your medical team.
+          <p className="text-[10px] text-slate-600 text-center py-4">
+            No messages yet. Help is being dispatched — updates will appear here.
           </p>
         ) : (
-          messages.map((m) => (
-            <div
-              key={m.id}
-              className={cn(
-                "text-[11px] px-2 py-1.5 rounded-md max-w-[85%]",
-                m.senderRole === "patient"
-                  ? "ml-auto bg-red-500/10 text-red-200 border border-red-500/10"
-                  : "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700/50"
-              )}
-            >
-              {m.senderRole !== "patient" && (
-                <p className="text-[9px] font-medium text-emerald-400 mb-0.5">
-                  {m.senderName} · {m.senderRole}
-                </p>
-              )}
-              {m.message}
-            </div>
-          ))
+          messages.map((m) => {
+            const isLogistics = m.senderName?.includes("Logistics") || m.senderName?.includes("CIRO");
+            const isPatient = m.senderRole === "patient";
+
+            return (
+              <div
+                key={m.id}
+                className={cn(
+                  "text-[11px] px-3 py-2 rounded-lg",
+                  isPatient
+                    ? "ml-auto max-w-[85%] bg-red-500/10 text-red-200 border border-red-500/10 text-right"
+                    : isLogistics
+                    ? "max-w-full bg-amber-500/10 border border-amber-500/20 text-slate-700 dark:text-slate-300"
+                    : "max-w-[85%] bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700/50"
+                )}
+              >
+                {!isPatient && (
+                  <p className={cn("text-[9px] font-bold mb-1", isLogistics ? "text-amber-400" : "text-emerald-400")}>
+                    {isLogistics ? "🤖 " : ""}{m.senderName}
+                  </p>
+                )}
+                {/* Render newlines properly */}
+                <div className="whitespace-pre-line leading-relaxed">{m.message}</div>
+              </div>
+            );
+          })
         )}
       </div>
 
@@ -341,7 +349,7 @@ export function CaseChat({ caseId, phone }: { caseId: string; phone: string }) {
         <input
           value={newMsg}
           onChange={(e) => setNewMsg(e.target.value)}
-          placeholder="Message..."
+          placeholder="Message your medical team..."
           className="flex-1 text-[11px] px-2 py-1.5 rounded-md bg-slate-100 dark:bg-slate-800/50 border border-slate-300 dark:border-slate-700/50 text-slate-800 dark:text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-red-500/30"
           onKeyDown={(e) => e.key === "Enter" && handleSend()}
         />

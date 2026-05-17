@@ -12,7 +12,6 @@ import {
   ShieldAlert,
   MapPin,
   Sparkles,
-  X,
   Navigation,
 } from "lucide-react";
 import { PatientForm } from "@/components/patient/PatientForm";
@@ -118,7 +117,7 @@ export default function PatientPage() {
     setPanelClosed(false);
   };
 
-  const showActiveCase = activeCase && !isPanelClosed && activeTab === "report";
+  const showActiveCase = !!activeCase && activeTab === "report";
 
   return (
     <div className={cn("mx-auto space-y-5 transition-all duration-500", showActiveCase ? "max-w-6xl" : "max-w-xl")}>
@@ -224,94 +223,115 @@ export default function PatientPage() {
         transition={{ duration: 0.2 }}
       >
         {activeTab === "report" ? (
-          <div className={cn("transition-all duration-500", showActiveCase ? "grid grid-cols-1 lg:grid-cols-12 gap-6" : "max-w-xl mx-auto space-y-4")}>
-            <div className={cn("space-y-4", showActiveCase ? "lg:col-span-5" : "")}>
+          <div className="flex gap-6 items-start overflow-hidden">
+            {/* Form Column — shrinks left when panel opens */}
+            <motion.div
+              layout
+              transition={{ duration: 0.35, ease: "easeInOut" }}
+              className={cn("shrink-0", showActiveCase && !isPanelClosed ? "w-[420px]" : "w-full max-w-xl mx-auto")}
+            >
               <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/30 backdrop-blur-sm p-5">
                 <div className="flex items-center gap-2 mb-5">
                   <AlertTriangle size={16} className="text-red-400" />
                   <h2 className="text-sm font-semibold text-slate-900 dark:text-white">Emergency Case Submission</h2>
+                  {/* Show button — always visible in the form header */}
+                  {showActiveCase && isPanelClosed && (
+                    <button
+                      onClick={() => setPanelClosed(false)}
+                      className="ml-auto px-3 py-1 rounded-lg bg-blue-500 hover:bg-blue-600 text-white text-[11px] font-bold transition-colors shadow-sm"
+                    >
+                      Show Guidance →
+                    </button>
+                  )}
                 </div>
                 <PatientForm onCaseSubmitted={handleCaseSubmitted} />
               </div>
-            </div>
+            </motion.div>
 
-            {showActiveCase && (
-              <div className="lg:col-span-7 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/30 p-5 relative">
-                <button 
-                  onClick={() => setPanelClosed(true)}
-                  className="absolute top-4 right-4 p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-800 dark:hover:text-white transition-colors z-10"
-                  title="Close panel"
+            {/* Guidance Panel — slides in from right */}
+            <AnimatePresence>
+              {showActiveCase && !isPanelClosed && (
+                <motion.div
+                  key="guidance-panel"
+                  initial={{ x: "100%", opacity: 0 }}
+                  animate={{ x: 0, opacity: 1 }}
+                  exit={{ x: "100%", opacity: 0 }}
+                  transition={{ duration: 0.35, ease: "easeInOut" }}
+                  className="flex-1 min-w-0 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/30 p-5 relative"
                 >
-                  <X size={16} />
-                </button>
-                <div className="space-y-3">
-                  {/* Uber-style Live Tracking — only if dispatched/en-route/arrived */}
-                  {(activeCase.status === "dispatched" || activeCase.status === "arrived" || activeCase.status === "in-progress") && (
-                    <LiveTrackingMap 
-                      patientLat={activeCase.latitude}
-                      patientLng={activeCase.longitude}
-                      status={activeCase.status}
-                    />
-                  )}
-                  
-                  <SituationalAdvice caseData={activeCase} />
+                  {/* Hide button */}
+                  <button
+                    onClick={() => setPanelClosed(true)}
+                    className="absolute top-3 right-3 z-10 px-3 py-1 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 text-[11px] font-semibold transition-colors"
+                  >
+                    ← Hide
+                  </button>
 
-                  {/* AI Summary & Medicines — only if EXPLICITLY approved by doctor */}
-                  {!activeCase.protocolApproved ? (
-                    <div className="mt-3 p-3 rounded-lg bg-slate-100 dark:bg-slate-800/50 border border-slate-300 dark:border-slate-700/50">
-                      <p className="text-[10px] font-medium text-slate-600 dark:text-slate-400 mb-1 flex items-center gap-1">
-                        <Clock size={10} /> Pending Doctor Review
-                      </p>
-                      <p className="text-xs text-slate-700 dark:text-slate-300 italic">
-                        Specific medicine recommendations will be visible once a doctor reviews and approves your case.
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="mt-3 p-3 rounded-lg bg-purple-500/5 border border-purple-500/10">
-                      <p className="text-[10px] font-medium text-purple-400 mb-1 flex items-center gap-1">
-                        <Sparkles size={10} /> Approved Medical Protocol
-                      </p>
-                      {activeCase.aiSummary && <p className="text-xs text-slate-700 dark:text-slate-300 mb-2">{activeCase.aiSummary}</p>}
-                      {activeCase.aiSuggestions?.filter((a) => a.includes("—")).length ? (
-                        <ul className="space-y-1">
-                          {activeCase.aiSuggestions.filter((a) => a.includes("—")).map((s, i) => (
-                            <li key={i} className="text-[11px] text-slate-700 dark:text-slate-300 flex items-start gap-1.5">
-                              <span className="text-purple-400 mt-0.5">💊</span>
-                              {s}
-                            </li>
-                          ))}
-                        </ul>
-                      ) : null}
-                    </div>
-                  )}
-
-                  {/* Chat — only if assigned or further */}
-                  {activeCase.status !== "pending" && (
-                    <div className="mt-3">
-                      <CaseChat caseId={activeCase.id} phone={phone} />
-                    </div>
-                  )}
-
-                  {/* Image */}
-                  {activeCase.imageUrl && (
-                    <div className="rounded-lg overflow-hidden border border-slate-300 dark:border-slate-700">
-                      <img
-                        src={activeCase.imageUrl}
-                        alt="Case image"
-                        className="w-full max-h-40 object-cover"
+                  <div className="space-y-3">
+                    {(activeCase.status === "dispatched" || activeCase.status === "arrived" || activeCase.status === "in-progress") && (
+                      <LiveTrackingMap
+                        patientLat={activeCase.latitude}
+                        patientLng={activeCase.longitude}
+                        status={activeCase.status}
                       />
-                    </div>
-                  )}
+                    )}
 
-                  {/* Location */}
-                  <div className="flex items-center gap-2 text-[11px] text-slate-500">
-                    <MapPin size={10} />
-                    {activeCase.latitude.toFixed(4)}, {activeCase.longitude.toFixed(4)}
-                    {activeCase.accuracy > 0 && ` · ±${Math.round(activeCase.accuracy)}m`}
+                    <SituationalAdvice caseData={activeCase} />
+
+                    {!activeCase.protocolApproved ? (
+                      <div className="mt-3 p-3 rounded-lg bg-slate-100 dark:bg-slate-800/50 border border-slate-300 dark:border-slate-700/50">
+                        <p className="text-[10px] font-medium text-slate-600 dark:text-slate-400 mb-1 flex items-center gap-1">
+                          <Clock size={10} /> Pending Doctor Review
+                        </p>
+                        <p className="text-xs text-slate-700 dark:text-slate-300 italic">
+                          Specific medicine recommendations will be visible once a doctor reviews and approves your case.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="mt-3 p-3 rounded-lg bg-purple-500/5 border border-purple-500/10">
+                        <p className="text-[10px] font-medium text-purple-400 mb-1 flex items-center gap-1">
+                          <Sparkles size={10} /> Approved Medical Protocol
+                        </p>
+                        {activeCase.aiSummary && <p className="text-xs text-slate-700 dark:text-slate-300 mb-2">{activeCase.aiSummary}</p>}
+                        {activeCase.aiSuggestions?.filter((a) => a.includes("—")).length ? (
+                          <ul className="space-y-1">
+                            {activeCase.aiSuggestions.filter((a) => a.includes("—")).map((s, i) => (
+                              <li key={i} className="text-[11px] text-slate-700 dark:text-slate-300 flex items-start gap-1.5">
+                                <span className="text-purple-400 mt-0.5">💊</span>
+                                {s}
+                              </li>
+                            ))}
+                          </ul>
+                        ) : null}
+                      </div>
+                    )}
+
+                    {(activeMessages.length > 0 || activeCase.status !== "pending") && (
+                      <div className="mt-3">
+                        {activeMessages.some(m => m.senderName?.includes("Logistics")) && (
+                          <div className="mb-2 flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-500 text-[10px] font-bold">
+                            🚑 Emergency resources have been found for you — see below
+                          </div>
+                        )}
+                        <CaseChat caseId={activeCase.id} phone={phone} />
+                      </div>
+                    )}
+
+                    {activeCase.imageUrl && (
+                      <div className="rounded-lg overflow-hidden border border-slate-300 dark:border-slate-700">
+                        <img src={activeCase.imageUrl} alt="Case image" className="w-full max-h-40 object-cover" />
+                      </div>
+                    )}
+
+                    <div className="flex items-center gap-2 text-[11px] text-slate-500">
+                      <MapPin size={10} />
+                      {activeCase.latitude.toFixed(4)}, {activeCase.longitude.toFixed(4)}
+                      {activeCase.accuracy > 0 && ` · ±${Math.round(activeCase.accuracy)}m`}
+                    </div>
                   </div>
-                </div>
-              </div>
-            )}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         ) : activeTab === "history" ? (
           <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/30 backdrop-blur-sm p-5">

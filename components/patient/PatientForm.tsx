@@ -19,7 +19,8 @@ import { ImageUploader } from "./ImageUploader";
 import { createCase, uploadCaseImage } from "@/services/caseService";
 import { analyzeSymptoms } from "@/services/aiService";
 import { getPatientProfile } from "@/services/profileService";
-import { detectCrisis } from "@/services/ciroService";
+import { addIntelligenceLog } from "@/services/ciroService";
+import { runIntelAgent } from "@/services/intelAgent";
 import type { Language, Severity, PatientProfile } from "@/types";
 
 interface PatientFormProps {
@@ -349,9 +350,61 @@ export function PatientForm({ onCaseSubmitted }: PatientFormProps) {
       setSubmitted(true);
       onCaseSubmitted(caseId);
 
-      // Trigger CIRO Autonomous Intelligence loop
+      // Write TriageAgent reasoning logs to CIRO Intelligence Feed
+      const severity = aiResult.triageLevel;
+      const isHighSeverity = severity === "critical" || severity === "high";
+      const conditions = aiResult.possibleConditions?.join(", ") || "unspecified condition";
+      const meds = aiResult.recommendedActions?.filter((a: string) => a.includes("—")).slice(0, 2).map((a: string) => a.split("—")[0].trim()).join(", ") || "standard triage protocol";
+
+      // Fire-and-forget — don't block the UI
+      Promise.all([
+        addIntelligenceLog({
+          caseId,
+          agentName: "TriageAgent",
+          thought: `New patient signal received. Phone: ${phone.slice(0, 6)}***. Language: ${language.toUpperCase()}. GPS locked: [${latitude?.toFixed(4)}, ${longitude?.toFixed(4)}]. Initiating clinical analysis...`,
+          confidence: 1.0,
+          action: "CASE_RECEIVED",
+        }),
+        addIntelligenceLog({
+          caseId,
+          agentName: "TriageAgent",
+          thought: `Symptom parsing complete. Possible conditions identified: ${conditions}. Running severity classification model...`,
+          confidence: aiResult.confidence || 0.85,
+          action: "SYMPTOMS_PARSED",
+        }),
+        addIntelligenceLog({
+          caseId,
+          agentName: "TriageAgent",
+          thought: `Severity classified as ${severity.toUpperCase()}. ${isHighSeverity ? "IMMEDIATE escalation required. Alerting Orchestrator and emergency team." : "Case queued for standard doctor review."} Confidence: ${Math.round((aiResult.confidence || 0.85) * 100)}%`,
+          confidence: aiResult.confidence || 0.85,
+          action: isHighSeverity ? "SEVERITY_CRITICAL" : "SEVERITY_STANDARD",
+        }),
+        addIntelligenceLog({
+          caseId,
+          agentName: "TriageAgent",
+          thought: `Clinical protocol generated. Recommended: ${meds}. Summary dispatched to Doctor Dashboard for review and approval.`,
+          confidence: 0.9,
+          action: "PROTOCOL_DISPATCHED",
+        }),
+        addIntelligenceLog({
+          caseId,
+          agentName: "Orchestrator",
+          thought: `TriageAgent completed case analysis for patient ${phone.slice(0, 6)}***. Severity: ${severity.toUpperCase()}. ${isHighSeverity ? "Routing to LogisticsAgent for ambulance dispatch." : "Routing to assigned physician for review."}`,
+          confidence: 0.95,
+          action: isHighSeverity ? "EMERGENCY_ROUTED" : "CASE_ASSIGNED",
+        }),
+      ]).catch(e => console.warn("TriageAgent log write failed:", e));
+
+      // Trigger CIRO Intel Agent — full multi-source signal fusion pipeline
       if (latitude && longitude) {
-        detectCrisis(caseId, latitude, longitude);
+        // Fire-and-forget: runs asynchronously, logs stream into CIRO INTEL_STREAM
+        runIntelAgent(
+          caseId,
+          latitude,
+          longitude,
+          aiResult.triageLevel,
+          issueTextRef.current
+        ).catch(e => console.warn("IntelAgent pipeline error:", e));
       }
 
       // Reset form after brief delay
