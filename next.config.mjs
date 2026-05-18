@@ -6,6 +6,7 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  output: "standalone",
   webpack: (config, { isServer }) => {
     if (!isServer) {
       config.resolve.fallback = {

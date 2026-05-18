@@ -78,14 +78,21 @@ export interface PatientCase {
 }
 
 export interface AIAnalysis {
+  detectedLanguage?: string;
+  normalizedInputEnglish?: string;
   possibleConditions: string[];
-  recommendedActions: string[];
-  situationalSuggestions?: string[]; // New: First aid/immediate actions
+  recommendedFirstAid?: string[];
+  doctorReviewMedicines?: string[];
+  recommendedActions: string[]; // For backwards compatibility
+  situationalSuggestions?: string[];
+  redFlags?: string[];
+  safetyWarnings?: string[];
   triageLevel: Severity;
   confidence: number;
+  patientMessage?: string;
+  doctorSummary?: string;
   summary: string;
   requiresImmediate: boolean;
-  safetyWarnings?: string[]; // New: AI flags allergies or contraindications
 }
 
 export interface ChatMessage {

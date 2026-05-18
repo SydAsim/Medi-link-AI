@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Brain, Pill, AlertTriangle, Activity, ChevronDown, ChevronUp, Sparkles, Edit2, CheckCircle, Loader2, MapPin, Trash2, Plus } from "lucide-react";
+import { Brain, Pill, AlertTriangle, Activity, ChevronDown, ChevronUp, Sparkles, Edit2, CheckCircle, Loader2, MapPin, Trash2, Plus, ShieldAlert, Stethoscope, Languages, AlertOctagon, HeartPulse } from "lucide-react";
 import { SeverityBadge } from "@/components/common/SeverityBadge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -15,11 +15,19 @@ interface AIAnalysisPanelProps {
   caseData: PatientCase | null;
 }
 
-// Parse medicine string: split on " — " for structured display
+// Strip the "FOR DOCTOR REVIEW ONLY" prefix if present, then parse the medicine string
+function cleanMedString(med: string): string {
+  return med.replace(/^FOR DOCTOR REVIEW ONLY\s*—\s*/i, "").trim();
+}
+
 function parseMedicine(med: string) {
-  const parts = med.split(" — ").map((p) => p.trim());
-  if (parts.length >= 3) {
+  const cleaned = cleanMedString(med);
+  const parts = cleaned.split(" — ").map((p) => p.trim());
+  if (parts.length >= 2) {
     return { name: parts[0], details: parts.slice(1) };
+  }
+  if (parts.length === 1 && parts[0]) {
+    return { name: parts[0], details: [] };
   }
   return null;
 }
@@ -42,12 +50,14 @@ export function AIAnalysisPanel({ caseData }: AIAnalysisPanelProps) {
   // Sync edited meds when entering edit mode
   const startEditing = (medicines: string[]) => {
     const parsed = medicines.map(m => {
-      const parts = m.split(" — ").map(p => p.trim());
+      // Strip the "FOR DOCTOR REVIEW ONLY" prefix before parsing
+      const cleaned = cleanMedString(m);
+      const parts = cleaned.split(" — ").map(p => p.trim());
       return {
-        name: parts[0] || m,
-        dosage: parts[1] || "",
-        frequency: "", // AI no longer suggests this, doctor must decide
-        purpose: parts[parts.length - 1] || "",
+        name: parts[0] || cleaned,          // e.g. "Paracetamol (Panadol)"
+        dosage: parts[1] || "",             // e.g. "oral analgesic — oral"
+        frequency: "",                       // Doctor must set schedule
+        purpose: parts[parts.length - 1] || "", // Last segment = key caution/purpose
         original: m
       };
     });
@@ -128,9 +138,25 @@ export function AIAnalysisPanel({ caseData }: AIAnalysisPanelProps) {
   }
 
   const actions = caseData.aiSuggestions || [];
-  // Strictly filter out any empty or malformed suggestions
-  const medicines = actions.filter((a) => a && a.includes("—") && a.trim() !== "");
-  const otherActions = actions.filter((a) => a && !a.includes("—") && a.trim() !== "");
+
+  // Prefer new structured fields if present on the case doc
+  const doctorMeds: string[] = (caseData as any).doctorReviewMedicines?.length
+    ? (caseData as any).doctorReviewMedicines
+    : actions.filter((a) => a && a.includes("—") && a.trim() !== "");
+
+  const firstAidSteps: string[] = (caseData as any).recommendedFirstAid?.length
+    ? (caseData as any).recommendedFirstAid
+    : actions.filter((a) => a && !a.includes("—") && a.trim() !== "");
+
+  // For backwards compat with approve flow
+  const medicines = doctorMeds;
+  const otherActions = firstAidSteps;
+
+  const redFlags: string[] = (caseData as any).redFlags || [];
+  const normalizedInput: string = (caseData as any).normalizedInputEnglish || "";
+  const doctorSummary: string = (caseData as any).doctorSummary || "";
+  const detectedLanguage: string = (caseData as any).detectedLanguage || "";
+  const patientMessage: string = (caseData as any).patientMessage || "";
 
   return (
     <motion.div
@@ -148,10 +174,38 @@ export function AIAnalysisPanel({ caseData }: AIAnalysisPanelProps) {
         <SeverityBadge severity={caseData.severity} size="sm" />
       </div>
 
-      {/* Summary */}
-      <div className="p-3 rounded-lg bg-slate-100 dark:bg-slate-800/40 border border-slate-300 dark:border-slate-700/50">
-        <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">{caseData.aiSummary}</p>
+      {/* Doctor Summary or AI Summary */}
+      <div className="p-3 rounded-lg bg-slate-100 dark:bg-slate-800/40 border border-slate-300 dark:border-slate-700/50 space-y-2">
+        {doctorSummary ? (
+          <>
+            <p className="text-[9px] uppercase tracking-widest text-purple-400 font-bold flex items-center gap-1">
+              <Stethoscope size={9} /> Clinical Summary
+            </p>
+            <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">{doctorSummary}</p>
+          </>
+        ) : (
+          <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">{caseData.aiSummary}</p>
+        )}
+
+        {/* Language detected */}
+        {detectedLanguage && detectedLanguage !== "unknown" && (
+          <div className="flex items-center gap-1 text-[9px] text-blue-400">
+            <Languages size={9} />
+            <span>Detected: <span className="font-semibold capitalize">{detectedLanguage.replace("_", " ")}</span></span>
+            {normalizedInput && <span className="text-slate-500">— &quot;{normalizedInput}&quot;</span>}
+          </div>
+        )}
       </div>
+
+      {/* Patient Message (what the patient sees) */}
+      {patientMessage && (
+        <div className="p-3 rounded-lg bg-pink-500/5 border border-pink-500/15">
+          <p className="text-[9px] uppercase tracking-widest text-pink-400 font-bold mb-1.5 flex items-center gap-1">
+            <HeartPulse size={9} /> Patient-Facing Message
+          </p>
+          <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed italic">&quot;{patientMessage}&quot;</p>
+        </div>
+      )}
       
       {/* Location Details */}
       {(caseData.address || caseData.nearbyLandmarks) && (
@@ -203,7 +257,7 @@ export function AIAnalysisPanel({ caseData }: AIAnalysisPanelProps) {
         </div>
       )}
 
-      {/* Medicines — parsed with — separators */}
+      {/* Doctor Review Medicines */}
       {medicines.length > 0 && (
         <div>
           <div className="flex items-center justify-between mb-2">
@@ -211,8 +265,8 @@ export function AIAnalysisPanel({ caseData }: AIAnalysisPanelProps) {
               onClick={() => setMedsExpanded(!medsExpanded)}
               className="flex items-center gap-1.5"
             >
-              <p className="text-[10px] uppercase tracking-wider text-slate-500 font-medium flex items-center gap-1.5">
-                <Pill size={10} /> Prescribed Medicines ({medicines.length})
+              <p className="text-[10px] uppercase tracking-wider text-purple-500 dark:text-purple-400 font-bold flex items-center gap-1.5">
+                <Pill size={10} /> Doctor Review Medicines ({medicines.length})
               </p>
               {medsExpanded ? <ChevronUp size={12} className="text-slate-500" /> : <ChevronDown size={12} className="text-slate-500" />}
             </button>
@@ -385,22 +439,7 @@ export function AIAnalysisPanel({ caseData }: AIAnalysisPanelProps) {
         </div>
       )}
 
-      {/* Other Actions */}
-      {otherActions.length > 0 && (
-        <div>
-          <p className="text-[10px] uppercase tracking-wider text-slate-500 font-medium mb-2">
-            Additional Actions
-          </p>
-          <ul className="space-y-1.5">
-            {otherActions.map((a, i) => (
-              <li key={i} className="text-xs text-slate-700 dark:text-slate-300 flex items-start gap-2">
-                <span className="text-emerald-400 mt-0.5 flex-shrink-0">•</span>
-                {a}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+
 
       {/* Image if present */}
       {caseData.imageUrl && (

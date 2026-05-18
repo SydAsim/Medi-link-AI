@@ -1,320 +1,71 @@
 "use client";
-// ============================================
-// AI Triage Service — Gemini 2.0 Flash (Primary) + OpenAI (Fallback)
-// Pharmaceutical-grade medicine recommendations
-// ============================================
 
 import type { AIAnalysis, Severity } from "@/types";
 
-const GEMINI_API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
-const OPENAI_API_KEY = process.env.NEXT_PUBLIC_OPENAI_API_KEY;
-
-const TRIAGE_PROMPT = `You are a high-level Emergency Medical Triage Agent. Your goal is to provide pharmaceutical-grade analysis and life-saving situational advice.
-
---- ABUSE & JOKE DETECTION ---
-1. Evaluate if the patient is submitting a genuine medical emergency.
-2. If the report is clearly a joke, a test, or non-medical (e.g., "I'm bored", "Just testing", "My dog is sad"), you MUST:
-   - Set "triageLevel" to "low".
-   - Set "summary" to "SYSTEM_NOTICE: No medical emergency detected. This report appears to be non-critical or a system test."
-   - Set "confidence" to 1.0.
-   - Do NOT suggest any medicines.
-
---- VISUAL INTELLIGENCE (For Images) ---
-1. If an image is provided, analyze it for:
-   - WOUNDS: Check depth, border irregularity, and active bleeding.
-   - SKIN: Look for cyanosis (blue tint), pallor, or spreading rashes (cellulitis).
-   - TRAUMA: Look for obvious deformity or swelling.
-2. Incorporate visual findings directly into the "summary".
-
---- PHARMACEUTICAL PRECISION ---
-- For EVERY medicine, use EXACTLY this format:
-  Chemical Name (Brand Name) — Dose in mg/ml — Route — Stomach instruction — Adult dose — Purpose
-- Example: "Amoxicillin (Augmentin) — 625mg oral tablet — Take at start of meal — Adult dose — Prevent infection"
-- NEVER suggest frequencies or schedules.
-
-Respond ONLY with valid JSON:
-{
-  "possibleConditions": ["condition1"],
-  "recommendedActions": ["Medicine (Brand) — dose — route — instruction — adult — purpose"],
-  "situationalSuggestions": ["1. Immediate step", "2. Second step"],
-  "safetyWarnings": ["Allergy warnings or contraindications"], 
-  "triageLevel": "critical|high|medium|low",
-  "confidence": 0.0-1.0,
-  "summary": "Clinical summary including visual findings if applicable.",
-  "requiresImmediate": true|false
-}
-
---- SAFETY RULES ---
-1. Check [PATIENT HISTORY] for Allergies or Chronic Conditions.
-2. If an allergy is found, flag it in safetyWarnings and suggest an alternative.
-3. If no history is provided, warn "Assumed no allergies - verify before administration."`;
-
-// ─── Condition-Specific Fallbacks ────────────────────────────
-const FALLBACKS: Record<string, AIAnalysis> = {
-  wound: {
-    possibleConditions: ["Open wound/Laceration", "Infection risk"],
-    recommendedActions: [
-      "Diclofenac Sodium (Voltaren) — 50mg oral tablet — after food — Adult dose — Pain & inflammation",
-      "Amoxicillin + Clavulanic Acid (Augmentin) — 625mg oral tablet — start of meal — Adult dose — Prevent wound infection",
-      "Povidone-Iodine (Betadine) — 10% topical solution — external only — Adult dose — Antiseptic wound cleaning",
-      "Apply direct pressure with clean cloth to control bleeding",
-      "Tetanus Toxoid vaccine if not updated in 5 years",
-    ],
-    triageLevel: "high", confidence: 0.75,
-    summary: "Open wound requiring cleaning, antibiotics, and pain management. Clean with Betadine, apply sterile dressing. Start Augmentin immediately if wound is deep.",
-    requiresImmediate: true,
-  },
-  cardiac: {
-    possibleConditions: ["Acute Coronary Syndrome", "Angina Pectoris", "Myocardial Infarction risk"],
-    recommendedActions: [
-      "Aspirin (Disprin) — 300mg chewable tablet — can take on empty stomach — Single loading dose — Antiplatelet to prevent clot",
-      "Nitroglycerin (Nitrostat) — 0.4mg sublingual tablet — sublingual only — Adult dose — Vasodilator for chest pain",
-      "Clopidogrel (Plavix) — 300mg loading dose — with or without food — Single loading dose — Antiplatelet for acute coronary",
-      "Call emergency services immediately — do NOT drive",
-      "Sit upright, loosen tight clothing, stay calm",
-    ],
-    triageLevel: "critical", confidence: 0.85,
-    summary: "LIFE-THREATENING cardiac event. Administer Aspirin 300mg chewed IMMEDIATELY. Nitroglycerin sublingual if available. ACTIVATE EMS NOW.",
-    requiresImmediate: true,
-  },
-  breathing: {
-    possibleConditions: ["Acute Asthma Exacerbation", "Bronchospasm", "Respiratory Distress"],
-    recommendedActions: [
-      "Salbutamol (Ventolin) — 100mcg/puff MDI — inhaled — Adult dose — Rapid bronchodilator",
-      "Prednisolone (Deltacortril) — 40mg oral tablet — after breakfast — Adult dose — Reduce airway inflammation",
-      "Ipratropium Bromide (Atrovent) — 20mcg/puff MDI — inhaled — Adult dose — Anticholinergic bronchodilator",
-      "Sit patient upright, lean slightly forward",
-      "Monitor SpO2 — if <92%, escalate to emergency immediately",
-    ],
-    triageLevel: "high", confidence: 0.8,
-    summary: "Acute respiratory distress. Administer Salbutamol immediately via spacer. Start Prednisolone orally. If no improvement in 20 minutes, escalate to emergency.",
-    requiresImmediate: true,
-  },
-  fracture: {
-    possibleConditions: ["Possible fracture", "Severe sprain", "Musculoskeletal trauma"],
-    recommendedActions: [
-      "Tramadol (Tramal) — 50mg oral capsule — with food — Max 400mg/day — Adult dose — Opioid analgesic for moderate-severe pain",
-      "Diclofenac Sodium (Voltaren) — 75mg IM injection — N/A — Adult dose — Rapid NSAID for acute trauma",
-      "Omeprazole (Losec) — 20mg oral capsule — empty stomach — Adult dose — Gastric protection with NSAIDs",
-      "Immobilize limb — do NOT attempt to realign",
-      "Apply ice wrapped in cloth for 20 min every hour",
-    ],
-    triageLevel: "high", confidence: 0.7,
-    summary: "Suspected fracture. DO NOT move limb. Apply ice, elevate if possible. X-ray required. Start Tramadol for pain management immediately.",
-    requiresImmediate: true,
-  },
-  fever: {
-    possibleConditions: ["Viral fever", "Upper respiratory infection", "Influenza"],
-    recommendedActions: [
-      "Paracetamol (Panadol) — 500mg oral tablet — with or without food — Max 4g/day — Adult dose — Antipyretic and analgesic",
-      "Cetirizine (Zyrtec) — 10mg oral tablet — with or without food — Adult dose — Antihistamine for rhinitis/congestion",
-      "ORS (Oral Rehydration Salt) — 1 sachet in 1L water — oral — Adult dose — Prevent dehydration",
-      "Rest and adequate fluid intake (2-3 liters/day)",
-      "Seek medical attention if fever >39.5°C or persists >3 days",
-    ],
-    triageLevel: "medium", confidence: 0.7,
-    summary: "Viral febrile illness. Manage with Paracetamol, hydration, and rest. Return if fever persists >3 days, rash appears, or breathing difficulty develops.",
-    requiresImmediate: false,
-  },
-  headache: {
-    possibleConditions: ["Tension headache", "Migraine", "Sinusitis"],
-    recommendedActions: [
-      "Ibuprofen (Brufen) — 400mg oral tablet — after meal — Max 1200mg/day — Adult dose — NSAID for headache pain",
-      "Sumatriptan (Imigran) — 50mg oral tablet — with or without food — Max 200mg/day — Adult dose — 5-HT1 agonist for migraine",
-      "Domperidone (Motilium) — 10mg oral tablet — before meals — Adult dose — Anti-emetic for nausea",
-      "Rest in dark quiet room",
-      "Cold compress on forehead",
-    ],
-    triageLevel: "low", confidence: 0.65,
-    summary: "Headache — likely tension or migraine. Use Ibuprofen first. If migraine (aura, nausea, photophobia), use Sumatriptan. EMERGENCY if 'worst headache of life' — may be subarachnoid hemorrhage.",
-    requiresImmediate: false,
-  },
-  stomach: {
-    possibleConditions: ["Gastroenteritis", "Food poisoning", "Gastritis"],
-    recommendedActions: [
-      "ORS (Oral Rehydration Salt) — 1 sachet in 1L water — oral — Adult dose — Primary treatment for dehydration",
-      "Ondansetron (Zofran) — 4mg sublingual tablet — dissolve under tongue — Adult dose — Anti-emetic for vomiting",
-      "Loperamide (Imodium) — 2mg capsule — oral — Max 8/day — Adult dose — Anti-diarrheal (avoid if bloody stool)",
-      "Omeprazole (Losec) — 20mg capsule — empty stomach — Adult dose — Acid suppression for gastritis",
-      "BRAT diet for 24-48 hours (Bananas, Rice, Applesauce, Toast)",
-    ],
-    triageLevel: "medium", confidence: 0.7,
-    summary: "Gastroenteritis. Priority: ORS hydration. Control vomiting with Ondansetron. Avoid solid food first 12 hours. EMERGENCY if bloody stool or signs of severe dehydration.",
-    requiresImmediate: false,
-  },
-  burns: {
-    possibleConditions: ["Thermal burn", "Second-degree burn", "Burn infection risk"],
-    recommendedActions: [
-      "Silver Sulfadiazine (Silvadene) — 1% topical cream — cover with sterile gauze — external only — Adult dose — Antimicrobial burn wound treatment",
-      "Ibuprofen (Brufen) — 400mg oral tablet — after meal — Adult dose — NSAID for burn pain",
-      "Cefalexin (Keflex) — 500mg oral capsule — with food — Adult dose — Antibiotic for burn infection prevention",
-      "Cool burn under running water for 20 minutes — NOT ice",
-      "Do NOT apply butter, toothpaste, or home remedies",
-    ],
-    triageLevel: "high", confidence: 0.75,
-    summary: "Burn injury. Cool under running water 20 minutes IMMEDIATELY. Apply Silver Sulfadiazine. Emergency care required for burns larger than patient's palm.",
-    requiresImmediate: true,
-  },
-  allergy: {
-    possibleConditions: ["Allergic reaction", "Urticaria", "Anaphylaxis risk"],
-    recommendedActions: [
-      "Cetirizine (Zyrtec) — 10mg oral tablet — with or without food — Adult dose — Antihistamine for allergic reaction",
-      "Prednisolone (Deltacortril) — 30mg oral tablet — after breakfast — Adult dose — Corticosteroid for moderate-severe reaction",
-      "Epinephrine (EpiPen) — 0.3mg IM auto-injector — through clothing if needed — Adult dose — LIFE-SAVING for anaphylaxis",
-      "Monitor for anaphylaxis: throat swelling, breathing difficulty, rapid pulse",
-      "Remove allergen exposure if identified",
-    ],
-    triageLevel: "high", confidence: 0.75,
-    summary: "Allergic reaction. Start Cetirizine. If ANY signs of anaphylaxis (throat swelling, breathing difficulty), inject Epinephrine IMMEDIATELY and call emergency. Can escalate rapidly.",
-    requiresImmediate: true,
-  },
-  general: {
-    possibleConditions: ["Inconclusive / Non-Medical"],
-    recommendedActions: [
-      "Provide more clinical details for a precise analysis",
-      "If this is a system test, please ignore this panel",
-    ],
-    triageLevel: "low", confidence: 0.1,
-    summary: "The system could not identify a clear medical emergency from the provided report. If you are experiencing symptoms, please elaborate. If this is a test, no further action is required.",
-    requiresImmediate: false,
-  },
-  test: {
-    possibleConditions: ["Non-Emergency / System Test"],
-    recommendedActions: ["No medical actions required for system tests"],
-    triageLevel: "low", confidence: 1.0,
-    summary: "SYSTEM_NOTICE: This report has been identified as a system test or non-medical query. AI Emergency Guidance is disabled for this case.",
-    requiresImmediate: false,
-  }
-};
-
-function matchFallback(text: string): AIAnalysis {
-  const s = text.toLowerCase();
-  
-  // Detect jokes/tests early
-  if (s.match(/joke|kidding|test|bored|checking|dummy|hello/)) return FALLBACKS.test;
-  
-  if (s.match(/cut|wound|bleed|lacerat|stab|slash/)) return FALLBACKS.wound;
-  if (s.match(/chest|heart|cardiac|palpitat/)) return FALLBACKS.cardiac;
-  if (s.match(/breath|asthma|wheez|lung|chok/)) return FALLBACKS.breathing;
-  if (s.match(/fracture|broken|bone|fall|sprain/)) return FALLBACKS.fracture;
-  if (s.match(/fever|flu|cold|cough|temperat/)) return FALLBACKS.fever;
-  if (s.match(/head|migrain|skull/)) return FALLBACKS.headache;
-  if (s.match(/stomach|vomit|nausea|diarr|abdomen|belly/)) return FALLBACKS.stomach;
-  if (s.match(/burn|scald|fire/)) return FALLBACKS.burns;
-  if (s.match(/allergy|rash|hive|itch|swell|anaphyl/)) return FALLBACKS.allergy;
-  return FALLBACKS.general;
-}
-
-function parseAIResponse(text: string): AIAnalysis {
-  let jsonStr = text.trim();
-  const match = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/i);
-  if (match) {
-    jsonStr = match[1].trim();
-  } else {
-    // If no markdown block but there might be text before/after the JSON
-    const firstBrace = jsonStr.indexOf('{');
-    const lastBrace = jsonStr.lastIndexOf('}');
-    if (firstBrace !== -1 && lastBrace !== -1) {
-      jsonStr = jsonStr.slice(firstBrace, lastBrace + 1);
-    }
-  }
-
-  try {
-    const p = JSON.parse(jsonStr);
-    const rawTriage = String(p.triageLevel || "").toLowerCase().trim();
-    const finalTriage = ["critical", "high", "medium", "low"].includes(rawTriage) ? rawTriage : "medium";
-    
-    // Sometimes LLMs return string "true" instead of boolean true
-    const isImmediate = p.requiresImmediate === true || String(p.requiresImmediate).toLowerCase() === "true";
-
-    return {
-      possibleConditions: Array.isArray(p.possibleConditions) ? p.possibleConditions : [],
-      recommendedActions: Array.isArray(p.recommendedActions) ? p.recommendedActions : [],
-      situationalSuggestions: Array.isArray(p.situationalSuggestions) ? p.situationalSuggestions : [],
-      safetyWarnings: Array.isArray(p.safetyWarnings) ? p.safetyWarnings : [],
-      triageLevel: finalTriage as Severity,
-      confidence: Math.min(1, Math.max(0, Number(p.confidence) || 0.5)),
-      summary: p.summary || "Analysis complete",
-      requiresImmediate: isImmediate,
-    };
-  } catch (err) {
-    console.warn("Failed to parse AI JSON:", err, "Raw text:", text);
-    // Attempt primitive regex fallback if JSON fails
-    const isCritical = /"triageLevel"\s*:\s*"critical"/i.test(text);
-    const isHigh = /"triageLevel"\s*:\s*"high"/i.test(text);
-    const fallbackTriage = isCritical ? "critical" : isHigh ? "high" : "medium";
-    const fallbackImmediate = /"requiresImmediate"\s*:\s*true/i.test(text) || isCritical;
-
-    return { 
-      possibleConditions: [], 
-      recommendedActions: ["Seek professional evaluation"], 
-      triageLevel: fallbackTriage, 
-      confidence: 0.3, 
-      summary: text.replace(/```json|```/g, '').slice(0, 200).trim() + "...", 
-      requiresImmediate: fallbackImmediate 
-    };
-  }
-}
-
-async function analyzeWithGemini(symptoms: string, description: string, patientHistory?: string, imageBase64?: string): Promise<AIAnalysis> {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
-  const textPart = { text: `${TRIAGE_PROMPT}\n\n[PATIENT HISTORY]:\n${patientHistory || "No historical records provided."}\n\n[CURRENT CASE]:\nSymptoms: ${symptoms}\nDetails: ${description}` };
-  const parts: any[] = [textPart];
-  if (imageBase64) parts.push({ inlineData: { mimeType: "image/jpeg", data: imageBase64 } });
-
-  const res = await fetch(url, {
+export async function analyzeSymptoms(
+  symptoms: string,
+  description: string,
+  patientHistory?: string,
+  imageBase64?: string
+): Promise<AIAnalysis> {
+  const res = await fetch("/api/ai/triage", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ contents: [{ parts }], generationConfig: { temperature: 0.3, maxOutputTokens: 2048 } }),
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      symptoms,
+      description,
+      patientHistory,
+      imageBase64,
+    }),
   });
-  if (!res.ok) throw new Error(`Gemini ${res.status}: ${await res.text()}`);
-  const data = await res.json();
-  const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!text) throw new Error("Gemini empty response");
-  return parseAIResponse(text);
-}
 
-async function analyzeWithOpenAI(symptoms: string, description: string, patientHistory?: string, imageBase64?: string): Promise<AIAnalysis> {
-  const userContent: any = imageBase64
-    ? [{ type: "text", text: `[PATIENT HISTORY]:\n${patientHistory || "None"}\n\n[CASE]:\nSymptoms: ${symptoms}\nDetails: ${description}` }, { type: "image_url", image_url: { url: `data:image/jpeg;base64,${imageBase64}` } }]
-    : `[PATIENT HISTORY]:\n${patientHistory || "None"}\n\n[CASE]:\nSymptoms: ${symptoms}\nDetails: ${description}`;
-
-  const res = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${OPENAI_API_KEY}` },
-    body: JSON.stringify({ model: imageBase64 ? "gpt-4o" : "gpt-4o-mini", messages: [{ role: "system", content: TRIAGE_PROMPT }, { role: "user", content: userContent }], temperature: 0.3, max_tokens: 2048 }),
-  });
-  if (!res.ok) throw new Error(`OpenAI ${res.status}: ${await res.text()}`);
-  const data = await res.json();
-  const text = data.choices?.[0]?.message?.content;
-  if (!text) throw new Error("OpenAI empty response");
-  return parseAIResponse(text);
-}
-
-export async function analyzeSymptoms(symptoms: string, description: string, patientHistory?: string, imageBase64?: string): Promise<AIAnalysis> {
-  if (GEMINI_API_KEY && GEMINI_API_KEY !== "xxx") {
-    try {
-      console.log("🔵 Gemini safety analysis...");
-      const r = await analyzeWithGemini(symptoms, description, patientHistory, imageBase64);
-      console.log("✅ Gemini success");
-      return r;
-    } catch (e) { console.warn("⚠️ Gemini failed:", e); }
+  if (!res.ok) {
+    throw new Error(`Triage API failed: ${res.status}`);
   }
-  if (OPENAI_API_KEY && OPENAI_API_KEY !== "xxx") {
-    try {
-      console.log("🟡 OpenAI fallback...");
-      const r = await analyzeWithOpenAI(symptoms, description, patientHistory, imageBase64);
-      console.log("✅ OpenAI success");
-      return r;
-    } catch (e) { console.warn("⚠️ OpenAI failed:", e); }
+
+  const data = await res.json();
+
+  if (!data.ok || !data.analysis) {
+    throw new Error(data.error || "Triage analysis failed.");
   }
-  console.warn("🟠 Using condition-specific fallback");
-  return matchFallback(symptoms + " " + description);
+
+  const rawAnalysis = data.analysis;
+
+  // Flawless backwards compatibility mapping for existing UI components:
+  const analysis: AIAnalysis = {
+    detectedLanguage: rawAnalysis.detectedLanguage || "unknown",
+    normalizedInputEnglish: rawAnalysis.normalizedInputEnglish || "",
+    possibleConditions: rawAnalysis.possibleConditions || [],
+    recommendedFirstAid: rawAnalysis.recommendedFirstAid || [],
+    doctorReviewMedicines: rawAnalysis.doctorReviewMedicines || [],
+    // recommendedActions combines medications and first aid so existing doctor/dispatcher dashboards display properly
+    recommendedActions: [
+      ...(rawAnalysis.doctorReviewMedicines || []),
+      ...(rawAnalysis.recommendedFirstAid || [])
+    ],
+    situationalSuggestions: rawAnalysis.recommendedFirstAid || [],
+    redFlags: rawAnalysis.redFlags || [],
+    safetyWarnings: rawAnalysis.safetyWarnings || [],
+    triageLevel: rawAnalysis.triageLevel as Severity,
+    confidence: Number(rawAnalysis.confidence) || 0.5,
+    patientMessage: rawAnalysis.patientMessage || rawAnalysis.summary || "",
+    doctorSummary: rawAnalysis.doctorSummary || rawAnalysis.normalizedInputEnglish || "",
+    summary: rawAnalysis.summary || rawAnalysis.patientMessage || "",
+    requiresImmediate: !!rawAnalysis.requiresImmediate,
+  };
+
+  return analysis;
 }
 
 export async function analyzeImage(imageBase64: string): Promise<string> {
-  try {
-    const r = await analyzeSymptoms("Visual assessment", "Patient submitted image for evaluation", imageBase64);
-    return r.summary;
-  } catch { return "Image analysis unavailable."; }
+  const result = await analyzeSymptoms(
+    "Visual assessment",
+    "Patient submitted an image for emergency triage. Analyze visible signs only.",
+    undefined,
+    imageBase64
+  );
+
+  return result.patientMessage || result.summary || result.doctorSummary || "Image analyzed.";
 }

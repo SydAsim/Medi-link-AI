@@ -30,7 +30,6 @@ interface PatientFormProps {
 const LANGUAGES: { value: Language; label: string }[] = [
   { value: "english", label: "English" },
   { value: "urdu", label: "اردو" },
-  { value: "pashto", label: "پښتو" },
 ];
 
 export function PatientForm({ onCaseSubmitted }: PatientFormProps) {
@@ -327,9 +326,10 @@ export function PatientForm({ onCaseSubmitted }: PatientFormProps) {
         longitude,
         accuracy: accuracy ?? 0,
         severity: aiResult.triageLevel,
-        aiSummary: aiResult.summary,
+        // Use patientMessage for the patient-facing summary if available, else fallback to summary
+        aiSummary: aiResult.patientMessage || aiResult.summary,
         aiSuggestions: aiResult.recommendedActions,
-        situationalSuggestions: aiResult.situationalSuggestions || [],
+        situationalSuggestions: aiResult.recommendedFirstAid || aiResult.situationalSuggestions || [],
         emergencyRequired: aiResult.requiresImmediate,
         status: "pending",
         safetyAlerts: aiResult.safetyWarnings || [],
@@ -345,6 +345,14 @@ export function PatientForm({ onCaseSubmitted }: PatientFormProps) {
         } : {}),
         isSpam: aiResult.summary.includes("SYSTEM_NOTICE"),
         isSystemTest: issueTextRef.current.toLowerCase().includes("test") || aiResult.summary.includes("system test"),
+        // ── New multilingual triage fields ─────────────────────────────
+        ...(aiResult.detectedLanguage ? { detectedLanguage: aiResult.detectedLanguage } : {}),
+        ...(aiResult.normalizedInputEnglish ? { normalizedInputEnglish: aiResult.normalizedInputEnglish } : {}),
+        ...(aiResult.patientMessage ? { patientMessage: aiResult.patientMessage } : {}),
+        ...(aiResult.doctorSummary ? { doctorSummary: aiResult.doctorSummary } : {}),
+        ...(aiResult.recommendedFirstAid?.length ? { recommendedFirstAid: aiResult.recommendedFirstAid } : {}),
+        ...(aiResult.doctorReviewMedicines?.length ? { doctorReviewMedicines: aiResult.doctorReviewMedicines } : {}),
+        ...(aiResult.redFlags?.length ? { redFlags: aiResult.redFlags } : {}),
       });
 
       setSubmitted(true);
