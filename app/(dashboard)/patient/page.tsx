@@ -36,7 +36,7 @@ export default function PatientPage() {
   const [cases, setCases] = useState<PatientCase[]>([]);
   const [profile, setProfile] = useState<PatientProfile | null>(null);
   const [activeMessages, setActiveMessages] = useState<ChatMessage[]>([]);
-  const [isPanelClosed, setIsPanelClosed] = useState(false);
+  const [isPanelClosed, setIsPanelClosed] = useState(true);
 
   // Load phone from localStorage
   useEffect(() => {
@@ -62,15 +62,9 @@ export default function PatientPage() {
     };
   }, [phone]);
 
-  // Load panel state from localStorage
-  useEffect(() => {
-    const saved = localStorage.getItem("medilink_panel_closed");
-    if (saved === "true") setIsPanelClosed(true);
-  }, []);
-
+  // Default the panel to closed on page refresh, and update state cleanly on user interaction
   const setPanelClosed = (closed: boolean) => {
     setIsPanelClosed(closed);
-    localStorage.setItem("medilink_panel_closed", closed.toString());
   };
 
   // Subscribe to profile for reminders

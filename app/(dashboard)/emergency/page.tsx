@@ -27,7 +27,6 @@ export default function EmergencyPage() {
 
   const [logisticsResult, setLogisticsResult] = useState<LogisticsResult | null>(null);
   const [logisticsLoading, setLogisticsLoading] = useState(false);
-  const [dispatched, setDispatched] = useState(false);
   const [logisticsExpanded, setLogisticsExpanded] = useState(false);
 
   const [intelLogs, setIntelLogs] = useState<IntelligenceLog[]>([]);
@@ -55,7 +54,7 @@ export default function EmergencyPage() {
   useEffect(() => {
     if (!selectedCase) return;
     const isHighSeverity = selectedCase.severity === "critical" || selectedCase.severity === "high";
-    if (!isHighSeverity) { setLogisticsResult(null); setDispatched(false); return; }
+    if (!isHighSeverity) { setLogisticsResult(null); return; }
 
     if ((selectedCase as any).logisticsDispatched) {
       if (!logisticsResult) {
@@ -81,7 +80,6 @@ export default function EmergencyPage() {
     }
 
     setLogisticsLoading(true);
-    setDispatched(false);
     setLogisticsResult(null);
 
     runLogisticsAgent(selectedCase.id, selectedCase.latitude, selectedCase.longitude, selectedCase.severity)
@@ -93,15 +91,6 @@ export default function EmergencyPage() {
     if (!selectedCase) return;
     try { await sendMessage(selectedCase.id, "dispatcher-1", "emergency", "Dispatcher", text); }
     catch (e) { console.error("Failed to send message:", e); }
-  };
-
-  const handleDispatchAmbulance = async () => {
-    if (!selectedCase || !logisticsResult?.ambulanceServices[0]) return;
-    setDispatched(true);
-    await sendMessage(
-      selectedCase.id, "logistics-agent", "emergency", "🤖 CIRO Logistics Agent",
-      `🚑 Ambulance has been DISPATCHED from ${logisticsResult.ambulanceServices[0].name}. ETA to your location: **${logisticsResult.ambulanceToPatientEta}**. Please remain at your current location.`
-    );
   };
 
   const highCases = allCases.filter((c) => c.severity === "high" || c.severity === "critical");
@@ -168,7 +157,6 @@ export default function EmergencyPage() {
               caseData={selectedCase}
               ambulance={logisticsResult?.ambulanceServices[0] || null}
               hospital={logisticsResult?.bestHospital || null}
-              dispatched={dispatched}
             />
           </div>
 
@@ -253,18 +241,6 @@ export default function EmergencyPage() {
                                   <div className="flex items-center gap-1 text-[10px] text-slate-400">
                                     <Clock size={9} /> Arrival: {logisticsResult.ambulanceServices[0].duration}
                                   </div>
-                                  {!dispatched ? (
-                                    <button
-                                      onClick={handleDispatchAmbulance}
-                                      className="mt-1 w-full py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-[10px] font-black uppercase tracking-wider transition-colors"
-                                    >
-                                      🚑 Dispatch Now
-                                    </button>
-                                  ) : (
-                                    <div className="mt-1 w-full py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-black uppercase tracking-wider text-center flex items-center justify-center gap-1">
-                                      <CheckCircle2 size={10} /> Dispatched
-                                    </div>
-                                  )}
                                 </div>
                               )}
                             </div>

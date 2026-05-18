@@ -27,6 +27,7 @@ export type AIAnalysis = {
 };
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+const GEMINI_API_KEY_FALLBACK = process.env.GEMINI_API_KEY_FALLBACK || process.env.NEXT_PUBLIC_GEMINI_API_KEY_FALLBACK;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || process.env.NEXT_PUBLIC_OPENAI_API_KEY;
 
 const TRIAGE_PROMPT = `
@@ -762,8 +763,13 @@ async function analyzeWithGemini(params: {
   description: string;
   patientHistory?: string;
   imageBase64?: string;
+  apiKey?: string;
+  modelName?: string;
 }): Promise<AIAnalysis> {
-  if (!GEMINI_API_KEY) {
+  const activeKey = params.apiKey || GEMINI_API_KEY;
+  const activeModel = params.modelName || "gemini-2.5-flash";
+
+  if (!activeKey) {
     throw new Error("Missing GEMINI_API_KEY");
   }
 
@@ -772,7 +778,7 @@ async function analyzeWithGemini(params: {
   const normalizedSymptoms = normalizeLocalMedicalText(symptoms);
   const normalizedDescription = normalizeLocalMedicalText(description);
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${activeModel}:generateContent?key=${activeKey}`;
 
   const textPart = {
     text: `${TRIAGE_PROMPT}
@@ -949,6 +955,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // 1. Try Primary Gemini Key (gemini-2.5-flash)
     if (GEMINI_API_KEY) {
       try {
         const result = await analyzeWithGemini({
@@ -956,15 +963,61 @@ export async function POST(req: NextRequest) {
           description,
           patientHistory,
           imageBase64,
+          apiKey: GEMINI_API_KEY,
+          modelName: "gemini-2.5-flash",
         });
 
         return NextResponse.json({
           ok: true,
-          provider: "gemini",
+          provider: "gemini-primary",
           analysis: result,
         });
       } catch (error) {
-        console.error("Gemini triage failed:", error);
+        console.error("Primary Gemini (2.5) failed:", error);
+      }
+    }
+
+    // 2. Try Fallback Gemini Key (gemini-2.5-flash)
+    if (GEMINI_API_KEY_FALLBACK) {
+      try {
+        const result = await analyzeWithGemini({
+          symptoms,
+          description,
+          patientHistory,
+          imageBase64,
+          apiKey: GEMINI_API_KEY_FALLBACK,
+          modelName: "gemini-2.5-flash",
+        });
+
+        return NextResponse.json({
+          ok: true,
+          provider: "gemini-fallback-2.5",
+          analysis: result,
+        });
+      } catch (error) {
+        console.error("Fallback Gemini (2.5) failed:", error);
+      }
+    }
+
+    // 3. Try Fallback Gemini Key with Gemini 2 (gemini-2.0-flash)
+    if (GEMINI_API_KEY_FALLBACK) {
+      try {
+        const result = await analyzeWithGemini({
+          symptoms,
+          description,
+          patientHistory,
+          imageBase64,
+          apiKey: GEMINI_API_KEY_FALLBACK,
+          modelName: "gemini-2.0-flash",
+        });
+
+        return NextResponse.json({
+          ok: true,
+          provider: "gemini-fallback-2.0",
+          analysis: result,
+        });
+      } catch (error) {
+        console.error("Fallback Gemini (2.0) failed:", error);
       }
     }
 

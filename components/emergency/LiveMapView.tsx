@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { Map as MapIcon, Truck } from "lucide-react";
+import { Map as MapIcon } from "lucide-react";
 import type { PatientCase } from "@/types";
 import type { NearbyFacility } from "@/services/logisticsAgent";
 
@@ -9,30 +8,10 @@ interface LiveMapViewProps {
   caseData: PatientCase | null;
   ambulance?: NearbyFacility | null;
   hospital?: NearbyFacility | null;
-  dispatched?: boolean;
 }
 
-export function LiveMapView({ caseData, ambulance, hospital, dispatched }: LiveMapViewProps) {
+export function LiveMapView({ caseData, ambulance, hospital }: LiveMapViewProps) {
   const API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-  const [ambulancePos, setAmbulancePos] = useState<{ x: number; y: number } | null>(null);
-
-  // Simulate ambulance movement from left edge → patient center
-  useEffect(() => {
-    if (!dispatched || !ambulance) {
-      setAmbulancePos(null);
-      return;
-    }
-    // Start off-screen left
-    setAmbulancePos({ x: 5, y: 50 });
-
-    let progress = 5;
-    const interval = setInterval(() => {
-      progress += 0.4; // move toward center (patient at ~50%)
-      setAmbulancePos({ x: progress, y: 50 });
-      if (progress >= 48) clearInterval(interval);
-    }, 100);
-    return () => clearInterval(interval);
-  }, [dispatched, ambulance]);
 
   if (!caseData) {
     return (
@@ -115,38 +94,6 @@ export function LiveMapView({ caseData, ambulance, hospital, dispatched }: LiveM
           PATIENT
         </div>
       </div>
-
-      {/* Animated Ambulance */}
-      {dispatched && ambulancePos && (
-        <div
-          className="absolute z-20 pointer-events-none transition-all duration-100"
-          style={{
-            left: `${ambulancePos.x}%`,
-            top: `${ambulancePos.y}%`,
-            transform: "translate(-50%, -50%)",
-          }}
-        >
-          <div className="relative flex flex-col items-center">
-            {/* Pulsing ring */}
-            <div className="absolute w-8 h-8 rounded-full bg-amber-500/20 animate-ping" />
-            {/* Ambulance icon */}
-            <div className="w-8 h-8 rounded-full bg-amber-500 flex items-center justify-center shadow-lg border-2 border-white relative z-10">
-              <Truck size={14} className="text-white" />
-            </div>
-            <div className="mt-1 bg-amber-500 text-white text-[8px] font-black px-1.5 py-0.5 rounded whitespace-nowrap shadow">
-              AMBULANCE
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Dispatch status banner */}
-      {dispatched && (
-        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 bg-amber-500/90 backdrop-blur-sm text-white text-[10px] font-bold px-3 py-1.5 rounded-full flex items-center gap-2 shadow-lg">
-          <Truck size={10} className="animate-bounce" />
-          AMBULANCE EN ROUTE — {ambulance?.duration || "~5 mins"}
-        </div>
-      )}
     </div>
   );
 }
