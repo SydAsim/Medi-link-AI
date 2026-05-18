@@ -1,0 +1,20 @@
+# gcloudignore file to upload .env.production to Cloud Build
+.git
+.gitignore
+node_modules/
+.next/
+.env.local
+.env.development
+.env.test
+.env.production.local
+.env.local.production
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.DS_Store
+*.pem
+/coverage
+/build
+.vercel
+*.tsbuildinfo
+next-env.d.ts
