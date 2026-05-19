@@ -56,7 +56,7 @@ export function EmergencyCaseList({ onSelectCase, selectedId }: EmergencyCaseLis
   }
 
   return (
-    <div className="space-y-1.5 max-h-[calc(100vh-280px)] overflow-y-auto pr-1">
+    <div className="space-y-1.5 pr-1">
       {cases.map((c, i) => {
         const isSelected = selectedId === c.id;
         return (

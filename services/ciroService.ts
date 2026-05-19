@@ -174,7 +174,7 @@ export async function scheduleMedicineReminders(
     });
     
     const profile = await getPatientProfile(phone);
-    const patientEmail = profile?.email || "patient-demo@example.com"; 
+    const patientEmail = profile?.email || "syedasim2021@gmail.com"; 
     await sendEmergencyReminder(phone, patientEmail, medDetails);
     
     await addIntelligenceLog({

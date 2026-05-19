@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Heart,
@@ -37,6 +37,31 @@ export default function PatientPage() {
   const [profile, setProfile] = useState<PatientProfile | null>(null);
   const [activeMessages, setActiveMessages] = useState<ChatMessage[]>([]);
   const [isPanelClosed, setIsPanelClosed] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
+  const guidanceRef = useRef<HTMLDivElement>(null);
+
+  const activeCase = cases[0]; // Get the most recent case regardless of status to stay in sync with history
+  const showActiveCase = !!activeCase && activeTab === "report";
+
+  // Responsive check
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 1024);
+    };
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  // Auto-scroll to guidance panel on mobile/tablet when opened or case submitted
+  useEffect(() => {
+    if (showActiveCase && !isPanelClosed) {
+      const timer = setTimeout(() => {
+        guidanceRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 150);
+      return () => clearTimeout(timer);
+    }
+  }, [showActiveCase, isPanelClosed]);
 
   // Load phone from localStorage
   useEffect(() => {
@@ -89,8 +114,6 @@ export default function PatientPage() {
     return () => unsub();
   }, [phone]);
 
-  const activeCase = cases[0]; // Get the most recent case regardless of status to stay in sync with history
-
   // Subscribe to active case messages
   useEffect(() => {
     if (!activeCase?.id) {
@@ -110,8 +133,6 @@ export default function PatientPage() {
     setLastCaseId(caseId);
     setPanelClosed(false);
   };
-
-  const showActiveCase = !!activeCase && activeTab === "report";
 
   return (
     <div className={cn("mx-auto space-y-5 transition-all duration-500", showActiveCase ? "max-w-6xl" : "max-w-xl")}>
@@ -217,12 +238,12 @@ export default function PatientPage() {
         transition={{ duration: 0.2 }}
       >
         {activeTab === "report" ? (
-          <div className="flex gap-6 items-start overflow-hidden">
+          <div className="flex flex-col lg:flex-row gap-6 items-start">
             {/* Form Column — shrinks left when panel opens */}
             <motion.div
               layout
               transition={{ duration: 0.35, ease: "easeInOut" }}
-              className={cn("shrink-0", showActiveCase && !isPanelClosed ? "w-[420px]" : "w-full max-w-xl mx-auto")}
+              className={cn("w-full shrink-0", showActiveCase && !isPanelClosed ? "lg:w-[420px]" : "max-w-xl mx-auto")}
             >
               <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/30 backdrop-blur-sm p-5">
                 <div className="flex items-center gap-2 mb-5">
@@ -242,16 +263,17 @@ export default function PatientPage() {
               </div>
             </motion.div>
 
-            {/* Guidance Panel — slides in from right */}
+            {/* Guidance Panel — slides in from right or up from bottom depending on screen */}
             <AnimatePresence>
               {showActiveCase && !isPanelClosed && (
                 <motion.div
+                  ref={guidanceRef}
                   key="guidance-panel"
-                  initial={{ x: "100%", opacity: 0 }}
-                  animate={{ x: 0, opacity: 1 }}
-                  exit={{ x: "100%", opacity: 0 }}
+                  initial={isMobile ? { y: 60, opacity: 0 } : { x: "100%", opacity: 0 }}
+                  animate={isMobile ? { y: 0, opacity: 1 } : { x: 0, opacity: 1 }}
+                  exit={isMobile ? { y: 60, opacity: 0 } : { x: "100%", opacity: 0 }}
                   transition={{ duration: 0.35, ease: "easeInOut" }}
-                  className="flex-1 min-w-0 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/30 p-5 relative"
+                  className="w-full lg:flex-1 lg:min-w-0 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/30 p-5 relative"
                 >
                   {/* Hide button */}
                   <button

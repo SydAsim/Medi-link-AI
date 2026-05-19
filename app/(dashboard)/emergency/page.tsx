@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Siren, MapPin, Truck, AlertOctagon, Radio, Navigation,
@@ -31,6 +31,27 @@ export default function EmergencyPage() {
 
   const [intelLogs, setIntelLogs] = useState<IntelligenceLog[]>([]);
   const [activeTab, setActiveTab] = useState<"intel" | "med" | "chat">("intel");
+
+  const [isMobile, setIsMobile] = useState(false);
+  const detailsRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 1024);
+    };
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  useEffect(() => {
+    if (selectedCase && isMobile) {
+      const timer = setTimeout(() => {
+        detailsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 150);
+      return () => clearTimeout(timer);
+    }
+  }, [selectedCase?.id, isMobile]);
 
   useEffect(() => {
     const unsub = subscribeToAllCases((cases) => setAllCases(cases));
@@ -94,7 +115,7 @@ export default function EmergencyPage() {
   };
 
   const highCases = allCases.filter((c) => c.severity === "high" || c.severity === "critical");
-  const activeDispatches = allCases.filter((c) => c.status === "dispatched" || c.status === "en-route").length;
+  const activeDispatches = allCases.filter((c) => c.status === "dispatched" || c.status === "in-progress").length;
   const isHighSeveritySelected = selectedCase?.severity === "critical" || selectedCase?.severity === "high";
 
   const STATS = [
@@ -105,10 +126,10 @@ export default function EmergencyPage() {
   ];
 
   return (
-    <div className="flex flex-col gap-3 h-[calc(100vh-72px)]">
+    <div className="flex flex-col gap-3 h-auto lg:h-[calc(100vh-72px)] overflow-y-auto lg:overflow-visible">
 
       {/* ── Stats Bar ─────────────────────────────────────────────── */}
-      <div className="grid grid-cols-4 gap-2 shrink-0">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 shrink-0">
         {STATS.map((s, i) => (
           <motion.div
             key={s.label}
@@ -127,10 +148,10 @@ export default function EmergencyPage() {
       </div>
 
       {/* ── Main Grid: 3 columns ──────────────────────────────────── */}
-      <div className="grid grid-cols-12 gap-3 flex-1 min-h-0">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 flex-1 min-h-0">
 
         {/* ── LEFT: Priority Queue ────────────────────── 3 cols */}
-        <div className="col-span-3 flex flex-col min-h-0">
+        <div className="col-span-1 lg:col-span-3 flex flex-col min-h-0 h-[380px] lg:h-auto">
           <div className="flex-1 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col min-h-0 overflow-hidden">
             <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-800 shrink-0 flex items-center gap-2">
               <AlertOctagon size={15} className="text-red-400" />
@@ -148,11 +169,10 @@ export default function EmergencyPage() {
         </div>
 
         {/* ── CENTER: Map + Dispatch ──────────────────── 5 cols */}
-        <div className="col-span-5 flex flex-col gap-3 min-h-0">
+        <div ref={detailsRef} className="col-span-1 lg:col-span-5 flex flex-col gap-3 min-h-0">
 
           {/* Map — always visible, fixed height */}
-          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden"
-            style={{ height: "52%" }}>
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden h-[300px] lg:h-[52%]">
             <LiveMapView
               caseData={selectedCase}
               ambulance={logisticsResult?.ambulanceServices[0] || null}
@@ -161,7 +181,7 @@ export default function EmergencyPage() {
           </div>
 
           {/* Bottom area: Logistics + Dispatch — scrollable */}
-          <div className="flex-1 flex flex-col gap-3 min-h-0 overflow-y-auto pr-0.5">
+          <div className="flex-1 flex flex-col gap-3 min-h-0 lg:overflow-y-auto pr-0.5">
 
             {/* Logistics Agent Results */}
             <AnimatePresence>
@@ -272,7 +292,7 @@ export default function EmergencyPage() {
         </div>
 
         {/* ── RIGHT: Intel / Med / Chat Tabs ────────── 4 cols */}
-        <div className="col-span-4 flex flex-col min-h-0 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+        <div className="col-span-1 lg:col-span-4 flex flex-col min-h-0 h-[450px] lg:h-auto bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
 
           {/* Tab Header */}
           <div className="grid grid-cols-3 border-b border-slate-200 dark:border-slate-800 shrink-0">

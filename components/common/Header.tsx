@@ -47,7 +47,7 @@ export function Header() {
     >
       <div className="flex items-center justify-between h-16 px-6 lg:px-8">
         {/* Left: Title & Breadcrumbs */}
-        <div className="flex flex-col">
+        <div className="flex flex-col pl-10 lg:pl-0">
           {/* Breadcrumbs */}
           <div className="flex items-center gap-1 text-[11px]">
             <span className="text-slate-600">MediLink</span>
