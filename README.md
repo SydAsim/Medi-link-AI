@@ -2,6 +2,7 @@
 
 > **🚀 Live Production URL:** [https://medilink-ai-web-761278272100.us-central1.run.app](https://medilink-ai-web-761278272100.us-central1.run.app)
 >
+> **🎥 Architecture & Walkthrough Video:** Watch the whole architecture and full detailed video [here](https://drive.google.com/file/d/1KVtLTvBYKzPg7AY4p4Cfyko4dUfaT2JD/view?usp=sharing)
 ---
 
 ## 📖 What Is MediLink?
