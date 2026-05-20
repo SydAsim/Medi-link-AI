@@ -25,6 +25,8 @@ The platform solves a critical gap in emergency response: **the seconds between 
 
 ## 🤖 The CIRO Multi-Agent Engine — Full Architecture
 
+![MediLink Technical Architecture](public/technical_diagram.png)
+
 MediLink's intelligence is powered by **five specialized autonomous agents** that work together in a pipeline. Each agent writes its reasoning steps as live logs visible in the CIRO Control Center.
 
 ### Agent Pipeline Overview
