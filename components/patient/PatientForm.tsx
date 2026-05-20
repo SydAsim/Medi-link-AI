@@ -190,7 +190,7 @@ export function PatientForm({ onCaseSubmitted }: PatientFormProps) {
     if (SpeechRecognition) {
       setVoiceSupported(true);
       const recognition = new SpeechRecognition();
-      recognition.continuous = true;
+      recognition.continuous = false;
       recognition.interimResults = true;
 
       const langMap: Record<Language, string> = {
