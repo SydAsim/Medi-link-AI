@@ -24,6 +24,7 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 import { addIntelligenceLog } from "./ciroService";
+import { runLogisticsAgent } from "./logisticsAgent";
 
 const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
@@ -114,7 +115,7 @@ export async function runIntelAgent(
     const bonus = Math.min(nearbyCases.length * 0.2, 0.6);
     confidenceScore += bonus;
     signals.push(`${nearbyCases.length} nearby reports`);
-    const severities = [...new Set(nearbyCases.map((c) => c.severity))].join(", ");
+    const severities = Array.from(new Set(nearbyCases.map((c) => c.severity))).join(", ");
     await addIntelligenceLog({
       caseId,
       agentName: "IntelAgent",
@@ -420,5 +421,14 @@ export async function runIntelAgent(
       confidence: confidenceScore,
       action: "DISPATCH_NOTIFIED",
     });
+  }
+
+  // Auto-trigger LogisticsAgent directly for high and critical cases so the patient is notified immediately
+  if (isHighSeverity) {
+    try {
+      await runLogisticsAgent(caseId, lat, lng, severity);
+    } catch (e) {
+      console.error("[IntelAgent] Error auto-running LogisticsAgent:", e);
+    }
   }
 }
