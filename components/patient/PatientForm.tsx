@@ -506,11 +506,13 @@ export function PatientForm({ onCaseSubmitted }: PatientFormProps) {
       >
         <motion.button
           type="button"
-          onMouseDown={() => startRecording()}
-          onMouseUp={() => stopRecording()}
-          onMouseLeave={() => isRecording && stopRecording()}
-          onTouchStart={() => startRecording()}
-          onTouchEnd={() => stopRecording()}
+          onClick={() => {
+            if (isRecording) {
+              stopRecording();
+            } else {
+              startRecording();
+            }
+          }}
           whileTap={{ scale: 0.9 }}
           className={cn(
             "relative h-20 w-20 rounded-full flex items-center justify-center transition-all duration-300 shadow-2xl",
@@ -540,10 +542,10 @@ export function PatientForm({ onCaseSubmitted }: PatientFormProps) {
           {isRecording ? (
             <span className="text-red-400 font-medium flex items-center gap-1.5">
               <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
-              Listening... Release to stop
+              Listening... Tap to stop
             </span>
           ) : voiceSupported ? (
-            "PRESS AND HOLD TO SPEAK"
+            "TAP TO SPEAK"
           ) : (
             "Voice input not supported in this browser"
           )}

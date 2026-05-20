@@ -105,28 +105,30 @@ export function Sidebar({ className }: SidebarProps) {
         )}
       >
         {/* Logo */}
-        <div className="flex items-center gap-3 p-6 border-b border-slate-200 dark:border-slate-800/80">
-          <div className="relative">
-            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center shadow-lg shadow-red-500/20">
-              <Activity size={22} className="text-slate-900 dark:text-white" />
+        <Link href="/" className="cursor-pointer group/logo">
+          <div className="flex items-center gap-3 p-6 border-b border-slate-200 dark:border-slate-800/80 hover:bg-slate-100 dark:hover:bg-slate-900/40 transition-colors duration-200">
+            <div className="relative">
+              <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center shadow-lg shadow-red-500/20 group-hover/logo:scale-[1.03] transition-transform duration-200">
+                <Activity size={22} className="text-slate-900 dark:text-white" />
+              </div>
+              <div className="absolute -top-0.5 -right-0.5 h-3 w-3 rounded-full bg-emerald-400 border-2 border-slate-950 animate-pulse" />
             </div>
-            <div className="absolute -top-0.5 -right-0.5 h-3 w-3 rounded-full bg-emerald-400 border-2 border-slate-950 animate-pulse" />
+            {!collapsed && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+              >
+                <h1 className="text-lg font-bold text-slate-900 dark:text-white tracking-tight">
+                  Medi<span className="text-red-400">Link</span>
+                </h1>
+                <p className="text-[10px] text-slate-500 uppercase tracking-widest">
+                  Emergency Response
+                </p>
+              </motion.div>
+            )}
           </div>
-          {!collapsed && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-            >
-              <h1 className="text-lg font-bold text-slate-900 dark:text-white tracking-tight">
-                Medi<span className="text-red-400">Link</span>
-              </h1>
-              <p className="text-[10px] text-slate-500 uppercase tracking-widest">
-                Emergency Response
-              </p>
-            </motion.div>
-          )}
-        </div>
+        </Link>
 
         {/* Navigation */}
         <nav className="flex-1 p-4 space-y-2">

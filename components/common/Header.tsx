@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { Bell, Search, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "./ThemeToggle";
+import Link from "next/link";
 
 const routeTitles: Record<string, { title: string; subtitle: string }> = {
   "/patient": {
@@ -50,7 +51,9 @@ export function Header() {
         <div className="flex flex-col pl-10 lg:pl-0">
           {/* Breadcrumbs */}
           <div className="flex items-center gap-1 text-[11px]">
-            <span className="text-slate-600">MediLink</span>
+            <Link href="/" className="text-slate-500 hover:text-slate-900 dark:text-slate-500 dark:hover:text-slate-300 font-medium transition-colors">
+              MediLink
+            </Link>
             {breadcrumbs.map((crumb) => (
               <span key={crumb.href} className="flex items-center gap-1">
                 <span className="text-slate-700">/</span>
