@@ -39,11 +39,11 @@ export function RealtimeChat({
   const getRoleColor = (role: UserRole) => {
     switch (role) {
       case "patient":
-        return "text-blue-400";
+        return "text-blue-600 dark:text-blue-400";
       case "doctor":
-        return "text-emerald-400";
+        return "text-emerald-600 dark:text-emerald-400";
       case "emergency":
-        return "text-red-400";
+        return "text-red-600 dark:text-red-400";
     }
   };
 
@@ -88,7 +88,7 @@ export function RealtimeChat({
                 className={cn(
                   "rounded-lg px-3 py-2 text-sm max-w-[80%]",
                   msg.senderId === currentUserId
-                    ? "bg-red-600/20 text-red-100 border border-red-500/20"
+                    ? "bg-red-600 dark:bg-red-600/30 text-white dark:text-red-100 border border-red-500/20"
                     : "bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700"
                 )}
               >

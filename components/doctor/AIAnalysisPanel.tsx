@@ -66,7 +66,7 @@ export function AIAnalysisPanel({ caseData }: AIAnalysisPanelProps) {
   };
 
   const handleApproveProtocol = async (otherActions: string[]) => {
-    if (!caseData || structuredMeds.length === 0) return;
+    if (!caseData) return;
     setSaving(true);
     try {
       // Re-construct the AI suggestions with the doctor's frequency
@@ -80,6 +80,7 @@ export function AIAnalysisPanel({ caseData }: AIAnalysisPanelProps) {
       
       await updateCase(caseData.id, { 
         aiSuggestions: updatedSuggestions,
+        doctorReviewMedicines: finalizedMeds,
         protocolApproved: true 
       });
       
@@ -175,54 +176,54 @@ export function AIAnalysisPanel({ caseData }: AIAnalysisPanelProps) {
       </div>
 
       {/* Doctor Summary or AI Summary */}
-      <div className="p-3 rounded-lg bg-slate-100 dark:bg-slate-800/40 border border-slate-300 dark:border-slate-700/50 space-y-2">
+      <div className="p-3 rounded-lg bg-purple-50/50 dark:bg-slate-800/40 border border-purple-100 dark:border-slate-700/50 space-y-2">
         {doctorSummary ? (
           <>
-            <p className="text-[9px] uppercase tracking-widest text-purple-400 font-bold flex items-center gap-1">
+            <p className="text-[9px] uppercase tracking-widest text-purple-600 dark:text-purple-400 font-bold flex items-center gap-1">
               <Stethoscope size={9} /> Clinical Summary
             </p>
-            <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">{doctorSummary}</p>
+            <p className="text-xs text-slate-800 dark:text-slate-300 leading-relaxed">{doctorSummary}</p>
           </>
         ) : (
-          <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">{caseData.aiSummary}</p>
+          <p className="text-xs text-slate-800 dark:text-slate-300 leading-relaxed">{caseData.aiSummary}</p>
         )}
 
         {/* Language detected */}
         {detectedLanguage && detectedLanguage !== "unknown" && (
-          <div className="flex items-center gap-1 text-[9px] text-blue-400">
+          <div className="flex items-center gap-1 text-[9px] text-blue-600 dark:text-blue-400">
             <Languages size={9} />
             <span>Detected: <span className="font-semibold capitalize">{detectedLanguage.replace("_", " ")}</span></span>
-            {normalizedInput && <span className="text-slate-500">— &quot;{normalizedInput}&quot;</span>}
+            {normalizedInput && <span className="text-slate-600 dark:text-slate-400">— &quot;{normalizedInput}&quot;</span>}
           </div>
         )}
       </div>
 
       {/* Patient Message (what the patient sees) */}
       {patientMessage && (
-        <div className="p-3 rounded-lg bg-pink-500/5 border border-pink-500/15">
-          <p className="text-[9px] uppercase tracking-widest text-pink-400 font-bold mb-1.5 flex items-center gap-1">
+        <div className="p-3 rounded-lg bg-pink-50 dark:bg-pink-500/5 border border-pink-100 dark:border-pink-500/15">
+          <p className="text-[9px] uppercase tracking-widest text-pink-600 dark:text-pink-400 font-bold mb-1.5 flex items-center gap-1">
             <HeartPulse size={9} /> Patient-Facing Message
           </p>
-          <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed italic">&quot;{patientMessage}&quot;</p>
+          <p className="text-[11px] text-slate-800 dark:text-slate-400 leading-relaxed italic">&quot;{patientMessage}&quot;</p>
         </div>
       )}
       
       {/* Location Details */}
       {(caseData.address || caseData.nearbyLandmarks) && (
-        <div className="p-3 rounded-lg bg-blue-500/5 border border-blue-500/10 space-y-2">
+        <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-500/5 border border-blue-100 dark:border-blue-500/10 space-y-2">
           <div className="flex items-center gap-2">
-            <MapPin size={14} className="text-blue-400" />
-            <p className="text-xs font-semibold text-blue-400 uppercase tracking-wider">Patient Location Context</p>
+            <MapPin size={14} className="text-blue-600 dark:text-blue-400" />
+            <p className="text-xs font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wider">Patient Location Context</p>
           </div>
           {caseData.address && (
-            <p className="text-[11px] text-slate-700 dark:text-slate-300 leading-tight">
+            <p className="text-[11px] text-slate-800 dark:text-slate-300 leading-tight">
               {caseData.address}
             </p>
           )}
           {caseData.nearbyLandmarks && caseData.nearbyLandmarks.length > 0 && (
             <div className="flex flex-wrap gap-1.5 mt-1">
               {caseData.nearbyLandmarks.map((l, i) => (
-                <span key={i} className="px-1.5 py-0.5 rounded bg-blue-500/10 text-[9px] text-blue-400 border border-blue-500/20">
+                <span key={i} className="px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-500/10 text-[9px] text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-500/20">
                   📍 {l}
                 </span>
               ))}
@@ -234,21 +235,21 @@ export function AIAnalysisPanel({ caseData }: AIAnalysisPanelProps) {
       {/* Emergency Alert */}
       {caseData.emergencyRequired && (
         <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20 animate-pulse">
-          <AlertTriangle size={14} className="text-red-400" />
-          <span className="text-xs font-bold text-red-400">EMERGENCY RESPONSE REQUIRED</span>
+          <AlertTriangle size={14} className="text-red-600 dark:text-red-400" />
+          <span className="text-xs font-bold text-red-600 dark:text-red-400">EMERGENCY RESPONSE REQUIRED</span>
         </div>
       )}
 
       {/* Possible Conditions */}
       {caseData.aiSuggestions && (
         <div>
-          <p className="text-[10px] uppercase tracking-wider text-slate-500 font-medium mb-2 flex items-center gap-1.5">
+          <p className="text-[10px] uppercase tracking-wider text-slate-600 dark:text-slate-500 font-medium mb-2 flex items-center gap-1.5">
             <Activity size={10} /> Possible Conditions
           </p>
           <div className="flex flex-wrap gap-1.5">
             {(caseData as any).possibleConditions
               ? ((caseData as any).possibleConditions as string[]).map((c, i) => (
-                  <span key={i} className="px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-[11px] text-slate-700 dark:text-slate-300">
+                  <span key={i} className="px-2 py-0.5 rounded-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[11px] text-slate-800 dark:text-slate-300">
                     {c}
                   </span>
                 ))
@@ -265,24 +266,24 @@ export function AIAnalysisPanel({ caseData }: AIAnalysisPanelProps) {
               onClick={() => setMedsExpanded(!medsExpanded)}
               className="flex items-center gap-1.5"
             >
-              <p className="text-[10px] uppercase tracking-wider text-purple-500 dark:text-purple-400 font-bold flex items-center gap-1.5">
+              <p className="text-[10px] uppercase tracking-wider text-purple-700 dark:text-purple-400 font-bold flex items-center gap-1.5">
                 <Pill size={10} /> Doctor Review Medicines ({medicines.length})
               </p>
-              {medsExpanded ? <ChevronUp size={12} className="text-slate-500" /> : <ChevronDown size={12} className="text-slate-500" />}
+              {medsExpanded ? <ChevronUp size={12} className="text-slate-600 dark:text-slate-500" /> : <ChevronDown size={12} className="text-slate-600 dark:text-slate-500" />}
             </button>
             
             {!isEditing && caseData.status !== "closed" && (
               <div className="flex items-center gap-2">
                 <button 
                   onClick={() => startEditing(medicines)}
-                  className="text-[10px] px-2 py-1 rounded-md bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 transition-all flex items-center gap-1"
+                  className="text-[10px] px-2 py-1 rounded-md bg-purple-100 dark:bg-purple-500/10 text-purple-700 dark:text-purple-400 hover:bg-purple-200 dark:hover:bg-purple-500/20 transition-all flex items-center gap-1 border border-purple-200 dark:border-purple-500/20"
                 >
                   <Edit2 size={10} /> {caseData.protocolApproved ? "Adjust Protocol" : "Edit Medicine"}
                 </button>
                 {!caseData.protocolApproved && structuredMeds.length > 0 && (
                   <button 
                     onClick={() => handleApproveProtocol(otherActions)}
-                    className="text-[10px] px-2 py-1 rounded-md bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-all flex items-center gap-1"
+                    className="text-[10px] px-2 py-1 rounded-md bg-emerald-100 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-200 dark:hover:bg-emerald-500/20 transition-all flex items-center gap-1 border border-emerald-200 dark:border-emerald-500/20"
                   >
                     <CheckCircle size={10} /> Approve Protocol
                   </button>
@@ -290,7 +291,7 @@ export function AIAnalysisPanel({ caseData }: AIAnalysisPanelProps) {
               </div>
             )}
             {caseData.protocolApproved && !isEditing && (
-              <div className="flex items-center gap-1 text-[10px] text-emerald-500 font-bold ml-2">
+              <div className="flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-500 font-bold ml-2">
                 <CheckCircle size={10} /> Protocol Active
               </div>
             )}
@@ -411,16 +412,16 @@ export function AIAnalysisPanel({ caseData }: AIAnalysisPanelProps) {
                         initial={{ opacity: 0, y: 5 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: i * 0.05 }}
-                        className="p-3 rounded-lg bg-purple-500/5 border border-purple-500/10"
+                        className="p-3 rounded-lg bg-purple-50 dark:bg-purple-500/5 border border-purple-100 dark:border-purple-500/10"
                       >
-                        <p className="text-xs font-semibold text-purple-400 dark:text-purple-300 mb-1.5 flex items-center gap-1.5">
-                          <Pill size={11} className="text-purple-400" />
+                        <p className="text-xs font-semibold text-purple-750 dark:text-purple-300 mb-1.5 flex items-center gap-1.5">
+                          <Pill size={11} className="text-purple-600 dark:text-purple-400" />
                           {parsed.name}
                         </p>
                         <div className="space-y-0.5">
                           {parsed.details.map((d, j) => (
-                            <p key={j} className="text-[11px] text-slate-700 dark:text-slate-400 pl-4">
-                              <span className="text-slate-500 mr-1">›</span> {d}
+                            <p key={j} className="text-[11px] text-slate-800 dark:text-slate-400 pl-4">
+                              <span className="text-slate-450 dark:text-slate-500 mr-1">›</span> {d}
                             </p>
                           ))}
                         </div>

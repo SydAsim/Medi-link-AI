@@ -41,6 +41,9 @@ export default function PatientPage() {
   const guidanceRef = useRef<HTMLDivElement>(null);
 
   const activeCase = cases[0]; // Get the most recent case regardless of status to stay in sync with history
+  const activeCaseMedicines: string[] = (activeCase as any)?.doctorReviewMedicines?.length
+    ? (activeCase as any).doctorReviewMedicines
+    : (activeCase?.aiSuggestions || []).filter((a) => a.includes("—"));
   const showActiveCase = !!activeCase && activeTab === "report";
 
   // Responsive check
@@ -305,20 +308,23 @@ export default function PatientPage() {
                       </div>
                     ) : (
                       <div className="mt-3 p-3 rounded-lg bg-purple-500/5 border border-purple-500/10">
-                        <p className="text-[10px] font-medium text-purple-400 mb-1 flex items-center gap-1">
+                        <p className="text-[10px] font-medium text-purple-400 mb-1.5 flex items-center gap-1">
                           <Sparkles size={10} /> Approved Medical Protocol
                         </p>
-                        {activeCase.aiSummary && <p className="text-xs text-slate-700 dark:text-slate-300 mb-2">{activeCase.aiSummary}</p>}
-                        {activeCase.aiSuggestions?.filter((a) => a.includes("—")).length ? (
+                        {activeCaseMedicines.length > 0 ? (
                           <ul className="space-y-1">
-                            {activeCase.aiSuggestions.filter((a) => a.includes("—")).map((s, i) => (
+                            {activeCaseMedicines.map((s, i) => (
                               <li key={i} className="text-[11px] text-slate-700 dark:text-slate-300 flex items-start gap-1.5">
                                 <span className="text-purple-400 mt-0.5">💊</span>
                                 {s}
                               </li>
                             ))}
                           </ul>
-                        ) : null}
+                        ) : (
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400 italic">
+                            No prescription medicines required. Please follow the guidance instructions above.
+                          </p>
+                        )}
                       </div>
                     )}
 

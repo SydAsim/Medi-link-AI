@@ -49,7 +49,7 @@ export function SituationalAdvice({ caseData }: { caseData: PatientCase }) {
         <div className="flex items-center gap-3">
           <div
             className={`p-2 rounded-xl ${
-              isSerious ? "bg-red-500/20 text-red-400" : "bg-blue-500/20 text-blue-500"
+              isSerious ? "bg-red-500/20 text-red-600 dark:text-red-400" : "bg-blue-500/20 text-blue-600 dark:text-blue-550"
             }`}
           >
             {isSerious ? <AlertOctagon size={18} /> : <Activity size={18} />}
@@ -57,15 +57,15 @@ export function SituationalAdvice({ caseData }: { caseData: PatientCase }) {
           <div>
             <h3
               className={`text-sm font-bold uppercase tracking-wider ${
-                isSerious ? "text-red-400" : "text-blue-500 dark:text-blue-400"
+                isSerious ? "text-red-600 dark:text-red-400" : "text-blue-600 dark:text-blue-400"
               }`}
             >
               {isSerious ? "⚠️ Emergency Guidance" : "AI Emergency Guidance"}
             </h3>
-            <p className="text-[10px] text-slate-500 italic">
+            <p className="text-[10px] text-slate-550 italic">
               Analyzed based on your {caseData.imageUrl ? "image & " : ""}report
               {detectedLanguage && detectedLanguage !== "unknown" && detectedLanguage !== "english" && (
-                <span className="ml-1 inline-flex items-center gap-0.5 text-blue-400">
+                <span className="ml-1 inline-flex items-center gap-0.5 text-blue-600 dark:text-blue-400">
                   <Languages size={9} /> {detectedLanguage.replace("_", " ")}
                 </span>
               )}
@@ -84,7 +84,7 @@ export function SituationalAdvice({ caseData }: { caseData: PatientCase }) {
         {/* AI Patient Message */}
         {patientMessage && (
           <div className="flex items-start gap-3 p-3 rounded-xl bg-white dark:bg-slate-900/60 border border-blue-500/10 shadow-sm">
-            <Heart size={14} className="mt-0.5 text-pink-400 flex-shrink-0" />
+            <Heart size={14} className="mt-0.5 text-pink-500 dark:text-pink-400 flex-shrink-0" />
             <p className="text-xs text-slate-800 dark:text-slate-200 leading-relaxed">
               {patientMessage}
             </p>
@@ -94,7 +94,7 @@ export function SituationalAdvice({ caseData }: { caseData: PatientCase }) {
         {/* First Aid Steps */}
         {guidanceSteps.length > 0 && (
           <div>
-            <p className="text-[9px] uppercase tracking-widest text-slate-500 font-bold mb-2 flex items-center gap-1">
+            <p className="text-[9px] uppercase tracking-widest text-slate-550 font-bold mb-2 flex items-center gap-1">
               <CheckCircle2 size={9} /> Immediate Steps
             </p>
             <div className="space-y-2">
@@ -106,10 +106,10 @@ export function SituationalAdvice({ caseData }: { caseData: PatientCase }) {
                   transition={{ delay: i * 0.05 }}
                   className="flex items-start gap-3 p-2.5 rounded-xl bg-white dark:bg-slate-900/50 border border-blue-500/10"
                 >
-                  <span className="mt-0.5 h-4 w-4 rounded-full bg-blue-500/20 text-blue-400 text-[9px] font-black flex items-center justify-center flex-shrink-0">
+                  <span className="mt-0.5 h-4 w-4 rounded-full bg-blue-500/20 text-blue-600 dark:text-blue-400 text-[9px] font-black flex items-center justify-center flex-shrink-0">
                     {i + 1}
                   </span>
-                  <p className="text-xs font-medium text-slate-800 dark:text-slate-200 leading-relaxed">
+                  <p className="text-xs font-medium text-slate-850 dark:text-slate-200 leading-relaxed">
                     {s}
                   </p>
                 </motion.div>
@@ -121,17 +121,17 @@ export function SituationalAdvice({ caseData }: { caseData: PatientCase }) {
         {/* Red Flags */}
         {redFlags && redFlags.length > 0 && (
           <div>
-            <p className="text-[9px] uppercase tracking-widest text-red-400 font-bold mb-2 flex items-center gap-1">
+            <p className="text-[9px] uppercase tracking-widest text-red-650 dark:text-red-400 font-bold mb-2 flex items-center gap-1">
               <AlertOctagon size={9} /> Danger Signs — Seek Emergency Care If:
             </p>
             <div className="space-y-1.5">
               {redFlags.map((flag, i) => (
                 <div
                   key={i}
-                  className="flex items-start gap-2 p-2 rounded-lg bg-red-500/5 border border-red-500/15"
+                  className="flex items-start gap-2 p-2 rounded-lg bg-red-50 dark:bg-red-500/5 border border-red-200 dark:border-red-500/15"
                 >
-                  <span className="text-red-400 mt-0.5 flex-shrink-0 text-xs">⚠</span>
-                  <p className="text-[11px] text-red-300 leading-relaxed">{flag}</p>
+                  <span className="text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0 text-xs">⚠</span>
+                  <p className="text-[11px] text-red-800 dark:text-red-300 leading-relaxed font-medium">{flag}</p>
                 </div>
               ))}
             </div>
@@ -140,12 +140,12 @@ export function SituationalAdvice({ caseData }: { caseData: PatientCase }) {
 
         {/* Safety Warnings */}
         {safetyWarnings.length > 0 && (
-          <div className="p-3 rounded-xl bg-amber-500/5 border border-amber-500/20">
-            <p className="text-[9px] uppercase tracking-widest text-amber-400 font-bold mb-2 flex items-center gap-1">
+          <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-500/5 border border-amber-200 dark:border-amber-500/20">
+            <p className="text-[9px] uppercase tracking-widest text-amber-700 dark:text-amber-400 font-bold mb-2 flex items-center gap-1">
               <ShieldAlert size={9} /> Safety Notes
             </p>
             {safetyWarnings.map((w, i) => (
-              <p key={i} className="text-[11px] text-amber-300/80 leading-relaxed">
+              <p key={i} className="text-[11px] text-amber-900 dark:text-amber-300/80 leading-relaxed font-medium">
                 {w}
               </p>
             ))}
@@ -155,12 +155,12 @@ export function SituationalAdvice({ caseData }: { caseData: PatientCase }) {
         {/* Footer */}
         <div className="pt-3 border-t border-blue-500/10 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Stethoscope size={11} className="text-blue-400 animate-pulse" />
-            <span className="text-[9px] font-bold text-blue-500/60 uppercase tracking-tighter">
+            <Stethoscope size={11} className="text-blue-500 dark:text-blue-400 animate-pulse" />
+            <span className="text-[9px] font-bold text-blue-600 dark:text-blue-500/60 uppercase tracking-tighter">
               Pending Dr Review
             </span>
           </div>
-          <p className="text-[9px] text-slate-500 italic">Stay calm. Help is coming.</p>
+          <p className="text-[9px] text-slate-600 dark:text-slate-500 italic">Stay calm. Help is coming.</p>
         </div>
       </div>
     </motion.div>

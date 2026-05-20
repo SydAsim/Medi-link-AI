@@ -122,7 +122,9 @@ function CaseCard({
   const StatusIcon = status.icon;
 
   const actions = caseData.aiSuggestions || [];
-  const medicines = actions.filter((a) => a.includes("—"));
+  const medicines: string[] = (caseData as any).doctorReviewMedicines?.length
+    ? (caseData as any).doctorReviewMedicines
+    : actions.filter((a) => a.includes("—"));
   const otherActions = actions.filter((a) => !a.includes("—"));
 
   return (
@@ -214,11 +216,10 @@ function CaseCard({
                 </div>
               ) : (
                 <div className="mt-3 p-3 rounded-lg bg-purple-500/5 border border-purple-500/10">
-                  <p className="text-[10px] font-medium text-purple-400 mb-1 flex items-center gap-1">
+                  <p className="text-[10px] font-medium text-purple-400 mb-1.5 flex items-center gap-1">
                     <Sparkles size={10} /> Approved Medical Protocol
                   </p>
-                  {caseData.aiSummary && <p className="text-xs text-slate-700 dark:text-slate-300 mb-2">{caseData.aiSummary}</p>}
-                  {medicines.length > 0 && (
+                  {medicines.length > 0 ? (
                     <ul className="space-y-1">
                       {medicines.map((s, i) => (
                         <li key={i} className="text-[11px] text-slate-700 dark:text-slate-300 flex items-start gap-1.5">
@@ -227,6 +228,10 @@ function CaseCard({
                         </li>
                       ))}
                     </ul>
+                  ) : (
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 italic">
+                      No prescription medicines required. Please follow the guidance instructions above.
+                    </p>
                   )}
                 </div>
               )}

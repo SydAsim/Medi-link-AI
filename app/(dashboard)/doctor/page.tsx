@@ -221,13 +221,13 @@ export default function DoctorPage() {
                       <div key={m.id} className={cn(
                         "text-[11px] px-3 py-2 rounded-lg leading-relaxed",
                         isDoctor
-                          ? "ml-auto max-w-[85%] bg-emerald-500/10 text-emerald-200 border border-emerald-500/15 text-right"
+                          ? "ml-auto max-w-[85%] bg-emerald-600 dark:bg-emerald-500/20 text-white dark:text-emerald-200 border border-emerald-500/20 dark:border-emerald-500/15 text-right"
                           : isBot
-                          ? "max-w-full bg-amber-500/10 border border-amber-500/20 text-slate-700 dark:text-slate-300"
-                          : "max-w-[85%] bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
+                          ? "max-w-full bg-amber-500/10 border border-amber-500/20 text-slate-800 dark:text-slate-300"
+                          : "max-w-[85%] bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700"
                       )}>
                         {!isDoctor && (
-                          <p className={cn("text-[9px] font-bold mb-0.5", isBot ? "text-amber-400" : "text-blue-400")}>
+                          <p className={cn("text-[9px] font-bold mb-0.5", isBot ? "text-amber-700 dark:text-amber-400" : "text-blue-600 dark:text-blue-400")}>
                             {isBot ? "🤖 " : ""}{m.senderName}
                           </p>
                         )}

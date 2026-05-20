@@ -75,6 +75,14 @@ export interface PatientCase {
   safetyAlerts?: string[]; // AI-generated warnings (e.g., "Allergic to Penicillin")
   isSpam?: boolean;        // New: For non-medical/joke reports
   isSystemTest?: boolean;  // New: For internal testing/demo cases
+  doctorReviewMedicines?: string[];
+  recommendedFirstAid?: string[];
+  redFlags?: string[];
+  doctorSummary?: string;
+  patientMessage?: string;
+  detectedLanguage?: string;
+  normalizedInputEnglish?: string;
+  logisticsDispatched?: boolean;
 }
 
 export interface AIAnalysis {
